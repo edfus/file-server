@@ -1,0 +1,211 @@
+#!/usr/bin/env node
+
+import { existsSync, promises as fsp } from "fs";
+import { createServer as https_server } from "https";
+import { createServer as http_server } from "http";
+import { createServer as net_server } from "net";
+
+import { App, Serve } from "../file-server.js";
+import { JSONCache, Log, questions, local } from "./helpers.js";
+
+if(!existsSync(local("../node_modules/prompts/index.js"))) {
+  throw new Error(
+    [
+      `Can't find dependency 'prompts' at ${local("../node_modules/prompts")}`,
+      "Try 'npm install prompts'"
+    ].join("\n")
+  )
+}
+
+/**
+ * 
+ * main
+ * 
+ */
+
+(async () => {
+  const app = new App();
+  const cache = new JSONCache();
+  const prompt = (await import("../node_modules/prompts/index.js")).default.prompt;
+
+  /**
+   * user input
+   */
+  let requirements;
+  try {
+    requirements = await cache.get(
+      "requirements",
+      () => prompt({ // get password callback
+        type: 'password',
+        name: 'password',
+        message: 'To recall your previous configuration, enter the password'
+      }).then(({ password }) => password)
+    );
+  } catch (err) {
+    console.info("Cache file corrupted. ", err);
+  }
+
+  let shouldPrompt = true;
+
+  if(typeof requirements === "object") {
+    shouldPrompt = !(await prompt({
+      type: 'toggle',
+      name: 'load',
+      message: 'Use previous configuration?',
+      initial: true,
+      active: 'Yes',
+      inactive: 'No'
+    })).load;
+
+    // set initial value from remembered config
+    questions.forEach(q => 
+      q.name in requirements
+      ? q.initial = requirements[q.name]
+      : void 0
+    );
+  }
+
+  if(shouldPrompt) {
+    requirements = await prompt(questions);
+
+    if(Object.keys(requirements).length > 5)
+      cache.set("requirements", requirements);
+  }
+
+  /**
+   * add middlewares
+   */
+  const logPath = requirements.logPath || "./log";
+  await (!existsSync(logPath) && fsp.mkdir(logPath));
+  const logger = new Log(logPath);
+
+  if (requirements.auth?.length) {
+    requirements.auth = requirements.auth.map(
+      ruleStr => new RegExp(ruleStr, "i")
+    );
+
+    const basicAuth = Buffer.from(
+      `${requirements.username}:${requirements.password}`
+    ).toString("base64");
+
+    app.prependListener(
+      (url, req, res) => {
+        if (requirements.auth.some(rule => rule.test(url.pathname))) {
+          const authorization = req.headers["authorization"];
+
+          if (!authorization) {
+            res.writeHead(401, {
+              "WWW-Authenticate": `Basic realm="restricted"`,
+              "Content-Length": 0
+            }).end();
+            return true;
+          }
+
+          if (authorization !== `Basic ${basicAuth}`) {
+            res.writeHead(401, {
+              "WWW-Authenticate": `Basic realm="restricted"`
+            }).end("Wrong username or password");
+            return true;
+          }
+          return false;
+        }
+      }
+    );
+  }
+
+  /**
+   * create servers
+   */
+  const servers = {};
+  let protocol = "http:";
+
+  if(requirements.useTLS) {
+    protocol = "https:";
+    if(!requirements.key || !requirements.cert) {
+      if(!["localhost", "127.0.0.1"].includes(requirements.hostname)) {
+        console.error("Self signed certificate is valid only for hostnames ['localhost', '127.0.0.1']");
+        protocol = "http:";
+      }
+    }
+  }
+
+  const port = requirements.port || 0;
+  const hostname = requirements.hostname || "localhost";
+  const requestListener = app.callback(
+    `${hostname}${port ? ":".concat(port) : ""}`, protocol
+  );
+
+  if(protocol === "https:") {
+    const keyPromise = fsp.readFile(requirements.key || local("./dev/server.key"));
+    const certPromise = fsp.readFile(requirements.cert || local("./dev/server.crt"));
+  
+    servers.https = https_server(
+      { key: keyPromise, cert: certPromise },
+      requestListener
+    );
+
+    servers.http = http_server((req, res) =>
+      res.writeHead(308, {
+        "Location": `https://${req.headers.host}${req.url}`
+      }).end()
+    );
+
+    servers.main = net_server(socket => 
+      socket.once("data", chunk => {
+        socket.pause().unshift(chunk);
+
+        servers[chunk[0] === 22 ? "https" : "http"]
+          .emit("connection", socket);
+
+        process.nextTick(() => socket.resume());
+      })
+    );
+  } else {
+    servers.main = http_server(requestListener);
+  }
+
+  servers.main.listen(
+    port,
+    hostname,
+    function () {
+      console.info(
+        `File server is running at ${protocol}//${getServerAddress(this)}`
+      );
+    }
+  );
+
+  /**
+   * log & process
+   */
+  Object.values(servers).forEach(server => server.on("error", logger.critical));
+  
+  const sockets = new Set();
+
+  servers.main.on("connection", socket => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+
+  process.on("SIGINT", () => {
+    console.info("Shutting down...");
+    Object.values(servers).forEach(server => server.close());
+    for (const socket of sockets.values()) {
+      socket.destroy();
+    }
+    process.exitCode = 0;
+    setTimeout(() => process.exit(0), 1000).unref();
+  });
+
+  process.on('uncaughtExceptionMonitor', err => {
+    logger.critical("There was an uncaught error\n".concat(err.stack));
+  });  
+})();
+
+function getServerAddress(server) {
+  const address = server.address();
+  return (
+    address.family === "IPv6"
+    ? `[${address.address}]:${address.port}`
+    : `${address.address}:${address.port}`
+  );
+}

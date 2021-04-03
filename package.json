@@ -1,0 +1,19 @@
+{
+  "name": "@edfus/file-server",
+  "version": "1.1.0",
+  "description": "A LAN server with auth, upload and multithreaded download",
+  "type": "module",
+  "main": "file-server.js",
+  "bin": {
+    "serve": "./bin/cmd.js"
+  },
+  "scripts": {
+    "serve": "node ./bin/cmd.js"
+  },
+  "keywords": ["http-server", "static", "local"],
+  "author": "edfus",
+  "license": "ISC",
+  "optionalDependencies": {
+    "prompts": "^2.4.0"
+  }
+}

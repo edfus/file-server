@@ -1,0 +1,48 @@
+html {
+  font-size: 30px;
+}
+
+section {
+  display: flex;
+  flex-direction: row;
+  column-gap: 2rem;
+  justify-content: center;
+}
+
+input,
+button,
+textarea,
+small {
+  font-size: .83rem;
+}
+
+input {
+  padding: 0.0625rem .125rem
+}
+
+button,
+input[type=reset] {
+  padding: 0.0625rem .375rem
+}
+
+#multithreads-attention {
+  display: block;
+  padding-left: 1rem;
+  font-size: 0.8rem;
+}
+
+input[type=range],
+input[type=checkbox] {
+  transform: scale(1.6);
+}
+
+input[type=range] {
+  margin: 0 1.4rem;
+}
+
+#file-uploader {
+  outline: dashed 1px rgba(118, 118, 118, .5);
+}
+#file-uploader:focus {
+  outline: solid;
+}

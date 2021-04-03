@@ -1,0 +1,64 @@
+<!-- saved from url=(0069)https://jimmywarting.github.io/StreamSaver.js/mitm.html?version=2.0.0 -->
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <script>
+    const unhandledMessages = [];
+    window.onmessage = (...args) => unhandledMessages.push(args);
+
+    navigator.serviceWorker.getRegistration('./').then(swReg => {
+      return swReg || navigator.serviceWorker.register('sw.js', { scope: './' });
+    })
+      .then(async swReg => {
+        const swRegTmp = swReg.installing || swReg.waiting;
+
+        if(!swReg.active) {
+          let activatedlistener;
+          await new Promise(resolve => {
+            swRegTmp.addEventListener('statechange', activatedlistener = () => {
+              if (swRegTmp.state === 'activated') {
+                swRegTmp.removeEventListener('statechange', activatedlistener);
+                resolve();
+              }
+            });
+          });
+        }
+        
+        return {
+          sw: swReg.active,
+          scope: swReg.scope
+        };
+      })
+      .then(
+        ({ sw, scope }) => {
+          window.onmessage = event => {
+            window.onmessage = () => { throw new Error("unexpected") };
+            let { data, ports } = event;
+
+            // set the absolute pathname to the download url.
+            data.url = new URL(`${scope}/${uuid()}`).toString();
+
+            // This sends the message data as well as transferring
+            // messageChannel.port2 to the service worker. The service worker can
+            // then use the transferred port to reply via postMessage(), which
+            // will in turn trigger the onmessage handler on messageChannel.port1.
+            return sw.postMessage(data, [ports[0]]);
+          }
+
+          unhandledMessages.forEach(args => window.onmessage.apply(void 0, args));
+        }
+      )
+    ;
+    
+    function uuid() {
+      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        (c ^ Math.random() * 16 | 0 & 15 >> c / 4).toString(16)
+      )
+    }
+  </script>
+</head>
+
+<body></body>
+
+</html>
