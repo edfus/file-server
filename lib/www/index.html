@@ -2,10 +2,7 @@
 <html>
 
 <head>
-  <!-- <meta name="viewport" content="width=device-width,initial-scale=1.5"> -->
   <title>File-Server.local</title>
-  <script type="module" src="https://unpkg.com/dark-mode-toggle"></script> 
-  <!-- NOTE https://github.com/GoogleChromeLabs/dark-mode-toggle -->
   <style>
     html {
       font-size: 30px;
@@ -59,16 +56,6 @@
 </head>
 
 <body>
-  <aside>
-    <dark-mode-toggle
-        id="dark-mode-toggle-1"
-        legend="Theme Switcher"
-        appearance="switch"
-        dark="Dark"
-        light="Light"
-        remember="Remember this"
-    ></dark-mode-toggle>
-  </aside>
   <main style="margin: 10% auto;">
     <section>
       <div>
@@ -422,7 +409,7 @@
 
   function setList(dataList) {
     fetch(
-      new URL(`${location.protocol}//${location.host}/api?list=${encodeURIComponent("/")}`)
+      new URL(`${location.origin}/api?action=get-list&list=${encodeURIComponent("/")}`)
     )
       .then(res => {
         if (res.status === 200)
@@ -432,7 +419,34 @@
       .then(
         rawJSON => {
           const files = JSON.parse(rawJSON);
-          dataList.innerHTML = files.map(file => `<option value="${file}">`);
+          dataList.innerHTML = files.sort(
+              (direntA, direntB) => {
+                if(direntA.type === "folder") {
+                  if(direntB.type === "folder") {
+                    return direntA.value.localeCompare(direntB.value);
+                  } else {
+                    return -1; // folder first
+                  }
+                } else {
+                  if(direntB.type === "file") {
+                    return direntA.value.localeCompare(direntB.value);
+                  } else {
+                    return -1;
+                  }
+                }
+              }
+            ).map(
+            ({ type, value }) => {
+              //TODO implement my own custom solution
+              switch (type) {
+                case "file":
+                  value = value.replace(/^\//, "");
+                  return  `<option type="${type}" value="${value}">`;
+                case "folder":
+                // value = value.replace(/([^\/])$/, "$1/");
+                  return  `<option type="${type}" value="${value}">`;
+              }
+            });
         }
       );
   }
@@ -479,7 +493,7 @@
       destination = destination.concat(file.name.match(/\.[^\\/]+$/)[0]);
     } // add extension
     fetch(
-      new URL(`https://${location.host}/upload?path=${encodeURIComponent(destination)}`),
+      new URL(`${location.origin}/api?action=upload&path=${encodeURIComponent(destination)}`),
       {
         method: "PUT",
         body: file,

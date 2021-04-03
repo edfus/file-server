@@ -1,15 +1,30 @@
 import { stat, createWriteStream, createReadStream, readdir, existsSync } from "fs";
-import { extname, basename, join, normalize, dirname } from "path";
+import { extname, basename, join, normalize, dirname, resolve } from "path";
 import { pipeline } from "stream";
 import mime from "./env/mime.js";
 import pathMap from "./env/path-map.js";
 import { fileURLToPath } from "url";
+import EventEmitter from "events";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const local = (...paths) => join(__dirname, ...paths.map(p => normalize(p)));
 
-class App {
+class App extends EventEmitter {
   middlewares = [];
+  context = {
+    app: this,
+    throw (status, message) {
+      const err = new Error(message || status);
+      err.status = status;
+      err.expose = true;
+      throw err;
+    },
+    assert (shouldBeTruthy, status, message) {
+      if(!shouldBeTruthy) {
+        this.throw(status, message);
+      }
+    }
+  }
 
   prepend (middleware) {
     this.middlewares.unshift(middleware);
@@ -25,23 +40,18 @@ class App {
     return async (req, res) => {
       const uriObject = new URL(req.url, `${protocol}//${req.headers.host || host}`);
       const ctx = {
-        app: this,
+        ...this.context,
         req, res,
         state: {
-          pathname: "",
+          pathname: decodeURIComponent(uriObject.pathname).replace(/\+/g, " "),
           uriObject: uriObject
         },
-        throw (status, message) {
-  
-        },
-        assert (shouldBeTruthy, status, message) {
-  
-        },
         url: uriObject.toString(),
+        secure: protocol === "https:",
         ip: req.headers["x-forwarded-for"] || req.socket.remoteAddress
       }
 
-      let index = 0
+      let index = 0;
       const next = async () => {
         if(index >= this.middlewares.length)
           return ;
@@ -51,10 +61,16 @@ class App {
       try {
         await next();
       } catch (err) {
-        res.writeHead(500, err.message);
+        const status = Number(err.status || 500);
+        if(err.expose !== false && err.status < 500) {
+          res.writeHead(status, err.message).end(err.message);
+        } else {
+          res.writeHead(status);
+        }
+        this.emit("error", err);
       } finally {
         if(!res.headersSent)
-          res.writeHead(204, "No Content", {
+          res.writeHead(204, {
             "Cache-Control": "no-cache",
             "Connection": "close"
           });
@@ -66,147 +82,147 @@ class App {
   }
 }
 
-
 class Serve {
   implementedMethods = ["GET", "PUT", "HEAD"];
   listCache = new Map();
   mimeCache = new Map();
 
-  commonRouter = [
-    pathname => decodeURIComponent(pathname).replace(/\+/g, " "),
-    pathname => pathMap.has(pathname) ? pathMap.get(pathname) : pathname,
-  ];
+  pathnameRouter = {
+    map: [
+      pathname => pathMap.has(pathname) ? pathMap.get(pathname) : pathname,
+    ],
+    filter: [
+      pathname => basename(pathname).startsWith(".") ? false : pathname
+    ],
+    fs: [
+      pathname => pathname.replace(/<|>|:|"|\||\?|\*/g, "-")
+    ],
+    file: [
+      pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname,
+      pathname => {
+        if (/\/index.html?$/.test(pathname))
+          return {
+            done: true,
+            value: local("./lib/www/index.html")
+          };
+        return pathname;
+      },
+      pathname => {
+        if (/^\/stream-saver\//.test(pathname))
+          return {
+            done: true,
+            value: local("./lib/", pathname)
+          };
+        return { done: false, value: pathname };
+      }
+    ],
+    dir: [
+      pathname => pathname.endsWith("/") ? pathname : pathname.concat("/")
+    ]
+  };
 
-  fsRouter = [
-    pathname => pathname.replace(/<|>|:|"|\||\?|\*/g, "-")
-  ];
-
-  fileRouter = [
-    pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname,
-    pathname => {
-      if (/\/index.html?$/.test(pathname))
-        return {
-          done: true,
-          value: local("./src/index.html")
-        };
-      return pathname;
-    },
-    pathname => {
-      if (/^\/stream-saver\//.test(pathname))
-        return {
-          done: true,
-          value: local("./lib/", pathname)
-        };
-      return { done: false, value: pathname };
-    }
-  ];
-
-  dirRouter = [
-    pathname => pathname.endsWith("/") ? pathname : pathname.concat("/")
-  ];
-
-  _reqHandlers = [];
-
-  constructor({
-    key, cert,
-    logger = {
-      error: console.error,
-      info: console.info,
-      critical: err => console.error(new Error(err))
-    }
-  } = {}) {
-    this.logger = logger;
+  mount (directory) {
+    this.pathnameRouter.dir.push(pathname => join(directory, normalize(pathname)));
+    this.pathnameRouter.file.push(pathname => join(directory, normalize(pathname)));
+    return this;
   }
 
-  default(directory) {
-    this.prependListener(
-      (url, req, res) => {
-        if (!this.implementedMethods.includes(req.method.toUpperCase())) {
-          res.writeHead(501).end();
-          return true;
+  * [Symbol.iterator] () {
+    return yield * [
+      async (ctx, next) => {
+        ctx.assert(
+          this.implementedMethods.includes(ctx.req.method.toUpperCase()),
+          501
+        );
+        return next();
+      },
+      async (ctx, next) => {
+        if (ctx.state.pathname === "/api") {
+          switch (ctx.state.uriObject.searchParams.get("action")) {
+            case "list":  /* Fall through */
+            case "get-list": return this.getList(ctx);
+            case "upload": return this.uploadFile(ctx);
+            default: return ctx.throw(400, "Field 'action' required");
+          }
+        }
+        return next();
+      },
+      async (ctx, next) => {
+        try {
+          await this.serveFile(ctx);
+        } catch (err) {
+          switch(err.status) {
+            case 404: return ctx.res.writeHead(404).end("404 NOT FOUND");
+            default: throw err;
+          }
         }
       }
-    );
-
-    this.addListener(
-      (url, req, res) => {
-        if (url.pathname === "/api")
-          return this.getList(url, req, res);
-      }
-    );
-
-    this.addListener(
-      (url, req, res) => {
-        if (url.pathname === "/upload")
-          return this.uploadFile(url, req, res);
-      }
-    );
-
-    this.fileRouter.push(pathname => join(directory, normalize(pathname)));
-    this.dirRouter.push(pathname => join(directory, normalize(pathname)));
-
-    return this.addListener(this.serveFile.bind(this));
+    ];
   }
 
-  listen(port, hostname, cb) {
-    this.tcp.ref();
-    this.http.ref();
-    this.https.ref();
-    this.tcp.listen(port, hostname, cb);
-    return this;
-  }
-
-  prependListener(func) {
-    this._reqHandlers.unshift(func);
-    return this;
-  }
-
-  addListener(func) {
-    this._reqHandlers.push(func);
-    return this;
-  }
-
-  getList(url, req, res) {
-    if (req.method.toUpperCase() !== "GET") {
-      res.writeHead(405).end("Expected Method GET");
-      return true;
-    }
+  async getList(ctx) {
+    const { req, res, state } = ctx;
+    const url = state.uriObject;
 
     const dirToList = url.searchParams.get("l") || url.searchParams.get("list");
 
-    if (dirToList) {
-      const dirpath = getRoute(dirToList, this.commonRouter, this.fsRouter, this.dirRouter);
+    ctx.assert(dirToList, 400, "Folder path required.");
+    ctx.assert(req.method.toUpperCase() === "GET", 405, "Expected Method GET");
 
-      if (this.listCache.has(dirpath)) {
-        const cached = this.listCache.get(dirpath);
-        if (Date.now() - cached.createdAt > cached.maxAge) {
-          this.listCache.delete(dirpath);
-        } else {
-          res.writeHead(200, { "Content-Type": "application/json" }).end(cached.value);
-          return true;
-        }
+    const dirpath = this.routeThrough(
+      dirToList,
+      this.pathnameRouter.map, this.pathnameRouter.fs, this.pathnameRouter.dir
+    );
+
+    if (this.listCache.has(dirpath)) {
+      const cached = this.listCache.get(dirpath);
+      if (Date.now() - cached.createdAt > cached.maxAge) {
+        this.listCache.delete(dirpath);
+      } else {
+        return res.writeHead(
+          200, { "Content-Type": "application/json" }
+        ).end(cached.value);
       }
+    }
 
+    return new Promise((resolve, reject) => {
       readdir(dirpath, { withFileTypes: true }, (err, files) => {
         if (err) {
-          this.logger.error(err, req);
           switch (err.code) {
             case "ENAMETOOLONG":
             case "ENOENT":
             case "ENOTDIR":
-              return res.writeHead(404).end("Not Found");
+              err.status = 404;
+              err.expose = false;
+              return reject(err);
             default:
-              return res.writeHead(500).end(err.message);
+              err.status = 500;
+              err.expose = false;
+              return reject(err);
           }
         }
 
         const result = JSON.stringify(
-          files.map(dirent => {
+          files
+          .map(dirent => {
+            if(!this.routeThrough(dirent.name, this.pathnameRouter.filter))
+              return false;
+
             if (dirent.isFile()) {
-              return dirToList.concat(dirent.name);
+              return {
+                type: "file",
+                value: dirToList.concat(dirent.name)
+              }
             }
-            return false; // dirent.isDirectory ...
-          }).filter(s => s)
+
+            if(dirent.isDirectory()) {
+              return {
+                type: "folder",
+                value: dirToList.concat(dirent.name)
+              }
+            }
+          })
+          .filter(s => s)
         );
 
         this.listCache.set(dirpath, {
@@ -214,235 +230,263 @@ class Serve {
           maxAge: 10 * 1000, // 10 seconds
           value: result
         });
-        this.logger.info(`Serving files list of ${dirToList} to ${req.socket.remoteAddress}:${req.socket.remotePort} succeeded`);
-        return res.writeHead(200, { "Content-Type": "application/json" }).end(result);
-      });
 
-      return true;
-    }
-    res.writeHead(400).end("Folder path required.");
-    return true;
+        res.writeHead(200, { "Content-Type": "application/json" }).end(result, resolve);
+      });
+    });
   }
 
-  uploadFile(url, req, res) {
-    if (req.method.toUpperCase() !== "PUT") {
-      return res.writeHead(405).end("Expected Method PUT");
-    }
+  async uploadFile(ctx) {
+    const { req, res, state } = ctx;
+    const url = state.uriObject;
 
     const uploadTarget = url.searchParams.get("p") || url.searchParams.get("path");
+    
+    ctx.assert(req.method.toUpperCase() === "PUT", 405, "Expected Method PUT");
+    ctx.assert(uploadTarget, 400, "Destination path required.");
+    ctx.assert(
+      normalize(uploadTarget).replace(/[^/\\]/g, "").length <= 1,
+      403,
+      "You DO NOT have the permission to create folders"
+    );
 
-    if (uploadTarget) {
-      if (normalize(uploadTarget).replace(/[^/\\]/g, "").length > 1) {
-        res.writeHead(403, "Forbidden").end("You DO NOT have the permission to create folders");
-        return true;
-      }
+    let destination = uploadTarget;
 
-      let destination = uploadTarget;
-
-      if (!/\.[^\\/]+$/.test(destination) && req.headers["content-type"]) {
-        const contentType = req.headers["content-type"];
-        if (mimeCache.has(contentType)) {
-          destination = destination.concat(mimeCache.get(contentType));
-        } else {
-          for (const key of Object.keys(mime)) {
-            if (mime[key] === contentType) {
-              mimeCache.set(contentType, key);
-              destination = destination.concat(key);
-              break;
-            }
+    // content-type
+    if (!/\.[^\\/]+$/.test(destination) && req.headers["content-type"]) {
+      const contentType = req.headers["content-type"];
+      if (mimeCache.has(contentType)) {
+        destination = destination.concat(mimeCache.get(contentType));
+      } else {
+        for (const key of Object.keys(mime)) {
+          if (mime[key] === contentType) {
+            mimeCache.set(contentType, key);
+            destination = destination.concat(key);
+            break;
           }
         }
       }
+    }
 
-      const filepath = getRoute(destination, this.fsRouter, this.fileRouter);
+    const filepath = this.routeThrough(
+      destination,
+      this.pathnameRouter.fs, this.pathnameRouter.file
+    );
 
-      if (existsSync(filepath)) {
+    if (existsSync(filepath)) {
+      return new Promise((resolve, reject) => {
         stat(filepath, (err, stats) => {
           if (err) {
-            this.logger.error(err, req);
-            return res.writeHead(500).end(err.message);
+            error.status = 500;
+            error.expose = false;
+            return reject(error);
           }
-
-          if (!stats.isFile()) {
-            return res.writeHead(403, "Forbidden").end("A directory entry already exists.");
+  
+          try {
+            ctx.assert(stats.isFile(), 403, "A directory entry already exists.");
+          } catch (err) {
+            return reject(err);
           }
 
           res.writeHead(200, {
             "Content-Location": destination
-          }).end(`Modified ${destination}`);
-
+          }).flushHeaders();
+  
           pipeline(
             req,
             createWriteStream(filepath, { flags: "w" }),
-            error => error
-              ? this.logger.error(error, req)
-              : this.logger.info(`Modifying ${filepath} for ${req.socket.remoteAddress}:${req.socket.remotePort} succeeded`)
+            error => {
+              if(error) {
+                error.status = 500;
+                error.expose = false;
+                return reject(error);
+              }
+              
+              return res.end(`Modified ${destination}`, resolve);
+            }          
           );
         });
-        return true;
-      } else {
-        res.writeHead(201, {
-          "Content-Location": destination
-        }).end(`Created ${destination}`);
+      });
+    } else {
+      res.writeHead(201, {
+        "Content-Location": destination
+      }).flushHeaders();
 
+      return new Promise((resolve, reject) => {
         pipeline(
           req,
           createWriteStream(filepath, { flags: "w" }),
-          error => error
-            ? this.logger.error(error, req)
-            : this.logger.info(`Creating ${filepath} for ${req.socket.remoteAddress}:${req.socket.remotePort} succeeded`)
+          error => {
+            if(error) {
+              error.status = 500;
+              error.expose = false;
+              return reject(error);
+            }
+            return res.end(`Created ${destination}`, resolve);
+          }
         );
-        return true;
-      }
+      }); 
     }
-    res.writeHead(400).end("Destination path required.");
-    return true;
   }
 
-  serveFile(url, req, res) {
+  async serveFile(ctx) {
+    const { req, res, state } = ctx;
+    const url = state.uriObject;
+
     const isDownload = url.searchParams.get("d") || url.searchParams.get("download");
-    const filepath = getRoute(url.pathname, this.commonRouter, this.fsRouter, this.fileRouter);
+    const filepath = this.routeThrough(
+      state.pathname,
+      this.pathnameRouter.map, this.pathnameRouter.fs, this.pathnameRouter.file
+    );
 
-    stat(filepath, (err, stats) => {
-      if (err) {
-        this.logger.error(err, req);
-        switch (err.code) {
-          case "ENAMETOOLONG":
-          case "ENOENT":
-            return res.writeHead(404).end("Not Found");
-          default:
-            return res.writeHead(500).end(err.message);
+    return new Promise((resolve, reject) => {
+      stat(filepath, (err, stats) => {
+        if (err) {
+          switch (err.code) {
+            case "ENAMETOOLONG":
+            case "ENOENT":
+              err.status = 404;
+              err.expose = false;
+              return reject(err);
+            default:
+              err.status = 500;
+              err.expose = false;
+              return reject(err);
+          }
         }
-      }
+  
+        try {
+          ctx.assert(!stats.isDirectory(), 400, "This is a FOLDER");
+          ctx.assert(stats.isFile(), 404);
+        } catch (err) {
+          return reject(err);
+        }
+  
+        const filename = basename(filepath);
+        const fileExtname = extname(filename);
+  
+        const type = mime[fileExtname] || "text/plain";
+        const charset = "utf8";
+  
+        const lastModified = stats.mtimeMs;
+        const eTag = this.etag(stats);
+  
+        // conditional request
+        if (
+          req.headers["if-none-match"] === eTag
+          ||
+          (
+            req.headers["last-modified"] &&
+            Number(req.headers["last-modified"]) > lastModified
+          )
+        ) {
+          return res.writeHead(304).end("Not Modified", resolve);
+        }
+  
+        const headers = {
+          "Content-Type": `${type}${charset ? "; charset=".concat(charset) : ""}`,
+          "Last-Modified": lastModified,
+          "ETag": eTag,
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "private, max-age=864000" // 10 days
+        };
+  
+        if (isDownload) {
+          headers["Content-Disposition"]
+            = `attachment; filename="${encodeURIComponent(filename)}"`
+            ;
+        }
+  
+        if (stats.size === 0)
+          return res.writeHead(204, "Empty file", headers).end("Empty file", resolve);
+  
+        let _start_ = 0, _end_ = stats.size - 1;
+        if (req.headers["range"]) {
+          const range = req.headers["range"];
+          let { 0: start, 1: end } = (
+            range.replace(/^bytes=/, "")
+              .split("-")
+              .map(n => parseInt(n, 10))
+          );
+          end = isNaN(end) ? stats.size - 1 : end;
+          start = isNaN(start) ? stats.size - end - 1 : start;
+  
+          if (!isInRange(-1, start, end, stats.size)) {
+            headers["Content-Range"] = `bytes */${stats.size}`;
+            return res.writeHead(416, headers).end(resolve);
+          }
+  
+          res.writeHead(206, {
+            ...headers,
+            "Content-Range": `bytes ${start}-${end}/${stats.size}`,
+            "Content-Length": String(end - start + 1),
+          });
+  
+          /**
+           * Range: bytes=1024-
+           * -> Content-Range: bytes 1024-2047/2048
+           */
+  
+          /**
+           * https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options
+           * An example to read the last 10 bytes of a file which is 100 bytes long:
+           * createReadStream('sample.txt', { start: 90, end: 99 });
+           */
+          _start_ = start;
+          _end_ = end;
+        } else {
+          //   headers["Transfer-Encoding"] = "chunked";
+          headers["Content-Length"] = stats.size;
+          res.writeHead(200, headers);
+        }
+  
+        if (req.method.toUpperCase() === "HEAD") {
+          return res.end(resolve);
+        }
+  
+        pipeline(
+          // Number.MAX_SAFE_INTEGER is 8192 TiB
+          createReadStream(filepath, { start: _start_, end: _end_ }),
+          res,
+          error => {
+            if(error) {
+              error.status = 500;
+              error.expose = false;
+              return reject(error);
+            }
 
-      if (!stats.isFile()) {
-        return res.writeHead(404).end("Not Found");
-      }
-
-      const filename = basename(filepath);
-      const fileExtname = extname(filename);
-
-      if (filename.startsWith("."))
-        return res.writeHead(404).end("Not Found");
-
-      const type = mime[fileExtname] || "text/plain";
-      const charset = "utf8";
-
-      if (type === "text/plain" && fileExtname !== ".txt") // hacky
-        this.logger.critical(`!mime[${fileExtname}] for ${filename}`);
-
-      const lastModified = stats.mtimeMs;
-      const eTag = etag(stats);
-
-      // conditional request
-      if (
-        req.headers["if-none-match"] === eTag
-        ||
-        (
-          req.headers["last-modified"] &&
-          Number(req.headers["last-modified"]) > lastModified
-        )
-      ) {
-        return res.writeHead(304).end("Not Modified");
-      }
-
-      const headers = {
-        "Content-Type": `${type}${charset ? "; charset=".concat(charset) : ""}`,
-        "Last-Modified": lastModified,
-        "ETag": eTag,
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "private, max-age=864000" // 10 days
-      };
-
-      if (isDownload) {
-        headers["Content-Disposition"]
-          = `attachment; filename="${encodeURIComponent(filename)}"`
-          ;
-      }
-
-      if (stats.size === 0)
-        return res.writeHead(204, "Empty file", headers).end("Empty file");
-
-      let _start_ = 0, _end_ = stats.size - 1;
-      if (req.headers["range"]) {
-        const range = req.headers["range"];
-        let { 0: start, 1: end } = (
-          range.replace(/^bytes=/, "")
-            .split("-")
-            .map(n => parseInt(n, 10))
+            return resolve();
+          }
         );
-        end = isNaN(end) ? stats.size - 1 : end;
-        start = isNaN(start) ? stats.size - end - 1 : start;
-
-        if (!isInRange(-1, start, end, stats.size)) {
-          headers["Content-Range"] = `bytes */${stats.size}`;
-          return res.writeHead(416, headers).end();
-        }
-
-        res.writeHead(206, {
-          ...headers,
-          "Content-Range": `bytes ${start}-${end}/${stats.size}`,
-          "Content-Length": String(end - start + 1),
-        });
-
-        /**
-         * Range: bytes=1024-
-         * -> Content-Range: bytes 1024-2047/2048
-         */
-
-        /**
-         * https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options
-         * An example to read the last 10 bytes of a file which is 100 bytes long:
-         * createReadStream('sample.txt', { start: 90, end: 99 });
-         */
-        _start_ = start;
-        _end_ = end;
-      } else {
-        // if (stats.size > 27799262) // roughly 25 MiB
-        //   headers["Transfer-Encoding"] = "chunked";
-        headers["Content-Length"] = stats.size;
-        res.writeHead(200, headers);
-      }
-
-      if (req.method.toUpperCase() === "HEAD") {
-        return res.end();
-      }
-
-      pipeline(
-        // Number.MAX_SAFE_INTEGER is 8192 TiB
-        createReadStream(filepath, { start: _start_, end: _end_ }),
-        res,
-        error => error
-          ? this.logger.error(error, req)
-          : this.logger.info(`Serving file ${filename} to ${req.socket.remoteAddress}:${req.socket.remotePort} succeeded`)
-      );
+      });
     });
-    return true;
+  }
+
+  routeThrough(input, ...routers) {
+    let ret = input;
+  
+    for (const router of routers) {
+      for (const callback of router) {
+        ret = callback(ret);
+        if(ret === false)
+          return false;
+        if (ret.done) {
+          ret = ret.value;
+          break;
+        }
+        ret = ret.value || ret;
+      }
+    }
+  
+    return typeof ret === "object" ? ret.value : ret;
+  }
+
+  etag(stats) {
+    return `"${stats.mtime.getTime().toString(16)}-${stats.size.toString(16)}"`;
   }
 }
 
 export { Serve, App };
-
-function getRoute(pathname, ...routers) {
-  let ret = pathname;
-
-  for (const router of routers) {
-    for (const callback of router) {
-      ret = callback(ret);
-      if (ret.done) {
-        ret = ret.value;
-        break;
-      }
-      ret = ret.value || ret;
-    }
-  }
-
-  return typeof ret === "object" ? ret.value : ret;
-}
-
-function etag(stats) {
-  return `"${stats.mtime.getTime().toString(16)}-${stats.size.toString(16)}"`;
-}
 
 function isInRange(...ranges) {
   for (let i = 0; i < ranges.length - 1; i++) {

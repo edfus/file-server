@@ -79,16 +79,16 @@ class Log {
   }
   critical(entry) {
     if(!this._critical)
-      this._critical = createWriteStream(join(this.outputDir, "./critical.log.txt"), { flags: "a" });
+      this._critical = createWriteStream(join(this.outputDir, "./critical.log"), { flags: "a" });
     // console.error(entry);
     this._critical.write(
       String(entry).concat("\n")
     );
   }
   
-  info(info) {
+  access(info) {
     if(!this._info)
-      this._info = createWriteStream(join(this.outputDir, "./info.log.txt"), { flags: "a" });
+      this._info = createWriteStream(join(this.outputDir, "./access.log"), { flags: "a" });
     console.info(info);
     this._info.write(
       info.concat("\n")
@@ -97,7 +97,7 @@ class Log {
 
   error(err, req) {
     if(!this._error)
-      this._error = createWriteStream(join(this.outputDir, "./error.log.txt"), { flags: "a" });
+      this._error = createWriteStream(join(this.outputDir, "./error.log"), { flags: "a" });
     this._error.write(
       [
         req && req.url,
@@ -221,7 +221,7 @@ export const questions = [
     message: 'Confirm password'
   },
   {
-    type: prev => prev && 'multiselect',
+    type: prev => prev !== false && 'multiselect',
     name: 'auth',
     message: 'Restricted realms where login is required',
     hint: true,

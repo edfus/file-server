@@ -63,6 +63,18 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
       ? q.initial = requirements[q.name]
       : void 0
     );
+     // set initial value for multiselect autocompleteMultiselect
+    questions.forEach(q => 
+      Array.isArray(q.choices)
+        ? Array.isArray(q.initial) && q.initial.forEach(
+          value => 
+            q.choices.forEach(
+              choice =>
+                choice.value === value && (choice.selected = true)
+            )
+        )
+        : void 0
+    );
   }
 
   if(shouldPrompt) {
@@ -75,10 +87,6 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
   /**
    * add middlewares
    */
-  const logPath = requirements.logPath || "./log";
-  await (!existsSync(logPath) && fsp.mkdir(logPath));
-  const logger = new Log(logPath);
-
   if (requirements.auth?.length) {
     requirements.auth = requirements.auth.map(
       ruleStr => new RegExp(ruleStr, "i")
@@ -88,39 +96,42 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
       `${requirements.username}:${requirements.password}`
     ).toString("base64");
 
-    app.prependListener(
-      (url, req, res) => {
-        if (requirements.auth.some(rule => rule.test(url.pathname))) {
+    app.use(
+      (ctx, next) => {
+        const { req, res, state } = ctx;
+
+        if (requirements.auth.some(rule => rule.test(state.pathname))) {
           const authorization = req.headers["authorization"];
 
           if (!authorization) {
-            res.writeHead(401, {
+            return res.writeHead(401, {
               "WWW-Authenticate": `Basic realm="restricted"`,
               "Content-Length": 0
             }).end();
-            return true;
           }
 
           if (authorization !== `Basic ${basicAuth}`) {
-            res.writeHead(401, {
+            return res.writeHead(401, {
               "WWW-Authenticate": `Basic realm="restricted"`
             }).end("Wrong username or password");
-            return true;
           }
-          return false;
         }
+
+        return next();
       }
     );
   }
+
+  const services = new Serve().mount(requirements.location);
+  for (const service of services) app.use(service);
 
   /**
    * create servers
    */
   const servers = {};
-  let protocol = "http:";
+  let protocol = requirements.notTLS ? "http:" : "https:";
 
-  if(requirements.useTLS) {
-    protocol = "https:";
+  if(!requirements.useSelfSignedCert) {
     if(!requirements.key || !requirements.cert) {
       if(!["localhost", "127.0.0.1"].includes(requirements.hostname)) {
         console.error("Self signed certificate is valid only for hostnames ['localhost', '127.0.0.1']");
@@ -140,7 +151,7 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
     const certPromise = fsp.readFile(requirements.cert || local("./dev/server.crt"));
   
     servers.https = https_server(
-      { key: keyPromise, cert: certPromise },
+      { key: await keyPromise, cert: await certPromise },
       requestListener
     );
 
@@ -177,7 +188,25 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
   /**
    * log & process
    */
-  Object.values(servers).forEach(server => server.on("error", logger.critical));
+  const logPath = requirements.logPath || "./log";
+  await (!existsSync(logPath) && fsp.mkdir(logPath));
+  const logger = new Log(logPath);
+
+  app
+    .prepend(
+      async (ctx, next) => {
+        await next();
+        logger.access([
+          new Date().toLocaleString(),
+          `${ctx.ip} ${ctx.req.method} ${ctx.req.url}`,
+          ctx.res.statusCode
+        ].join(" - "));
+      }
+    )
+    .on("error", logger.error.bind(logger))
+  ;
+
+  Object.values(servers).forEach(server => server.on("error", logger.critical.bind(logger)));
   
   const sockets = new Set();
 
@@ -193,7 +222,7 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
       socket.destroy();
     }
     process.exitCode = 0;
-    setTimeout(() => process.exit(0), 1000).unref();
+    setTimeout(() => process.exit(0), 1000).unref(); //
   });
 
   process.on('uncaughtExceptionMonitor', err => {
