@@ -3,6 +3,7 @@
 
 <head>
   <title>File-Server.local</title>
+  <link rel="modulepreload" href="/_lib_/www/request.js">
   <link rel="stylesheet" href="/_lib_/www/style/common.css">
   <link rel="stylesheet" href="/_lib_/www/style/dark.css" media="(prefers-color-scheme: dark)">
   <script src="/_lib_/www/custom-elements.js" type="module"></script>
@@ -65,6 +66,9 @@
   </aside>
 </body>
 <script type="module">
+  /**
+   * isRangeRequest style
+   */
   const map = { "true": "visible", "false": "hidden" };
   const isRangeRequest = document.getElementById("is-range-request");
   const threadsCountWrapper = document.getElementById("threads-count-wrapper");
@@ -79,6 +83,9 @@
   isRangeRequest.checked = localStorage["isRangeRequest.checked"] !== "false";
   isRangeRequest.onchange();
 
+  /**
+   * threadsSelector style
+   */
   const threadsSelector = document.getElementById("threads-count");
   const threadsSelectorLabel = threadsSelector.parentNode.querySelector('label[for="threads-count"]');
   const multithreadsAttention = threadsSelector.parentNode.querySelector('#multithreads-attention');
@@ -93,325 +100,24 @@
   threadsSelector.value = Number(localStorage["threadsSelector.value"]);
   threadsSelector.onchange();
 
-  const pathInput = document.getElementById("get-file-input");
-  const dataList = document.getElementById("get-file-input-datalist");
-  pathInput.addEventListener("focus", () => setList(dataList));
-  setList(dataList);
+  /**
+   * log style
+   */
   const log = document.getElementById("log");
 
   log.value = "$: ";
   document.getElementById("clear-log").addEventListener("click", () => log.value = "$:", { passive: true });
-  document.getElementById("download-button").addEventListener("click", download, { passive: true });
-  pathInput.addEventListener("keyup", e => e.key === "Enter" && download());
-
-  class ProgressLog {
-    entries = {};
-    twirl = ["\\", "|", "/", "-"];
-    length = 0;
-    debounce = {
-      in: false,
-      func: () => {
-        this.dom.value = Object.keys(this.entries).reduce((acc, i) => acc.concat(this.entries[i].concat("\n")), "");
-        this.debounce.in = false;
-      }
-    }
-
-    constructor(textArea, minInterval = 50) {
-      this.dom = textArea;
-      this._stash = textArea.value;
-      this.minInterval = minInterval;
-
-      this.constructor.instance = this;
-    }
-
-    bar(head) {
-      const index = this.length++;
-      this.entries[index] = head;
-      let closed = false, x = 0;
-      return {
-        log: footer => {
-          if (closed || this.closed) return;
-          this.entries[index] = head.concat(this.twirl[x++]).concat(footer);
-          this.update();
-          if (x >= this.twirl.length) x = 0;
-        },
-        close: () => {
-          delete this.entries[index];
-          closed = true;
-          this.update();
-        }
-      };
-    }
-
-    update() {
-      if (this.debounce.in || this.closed) {
-        return;
-      } else {
-        this.debounce.in = true;
-        setTimeout(this.debounce.func, this.minInterval);
-      }
-    }
-
-    close() {
-      this.dom.value = this._stash;
-      this._stash = null;
-      this.entries = null;
-      this.twirl = null;
-      this.fleet = null;
-      this.closed = true;
-
-      this.constructor.instance = null;
-    }
-
-    static instance = null;
-  }
-
-  let createWriteStream = null; //
-
-  function download() {
-    if (!pathInput.value)
-      return logAppend("input required.");
-    const pathname = pathInput.value
-      .replace("\\", "/")
-      .replace(/\s/, "+")
-      .replace(/^([^\/])/, "/$1")
-      ;
-
-    const url = new URL(pathname, `${location.protocol}//${location.host}`);
-    url.searchParams.set("download", 1);
-
-    if (isRangeRequest.checked) {
-      if (!ProgressLog.instance) new ProgressLog(log);
-
-      const titleLogger = ProgressLog.instance.bar(`Warming up for fetching ${url.pathname}...`);
-      const intervalTimer = setInterval(titleLogger.log, 20);
-      fetch(
-        url,
-        {
-          method: "HEAD",
-          headers: new Headers({
-            range: "0-"
-          })
-        }
-      ).then(
-        async res => {
-          listenBeforeUnload();
-          clearInterval(intervalTimer);
-          titleLogger.close();
-          ProgressLog.instance.bar(`Downloading ${url.pathname}...`);
-
-          if (res.status !== 206) {
-            throw new Error(`${res.status} ${res.statusText}`);
-          }
-
-          const MiB = 2 ** 20;
-          const contentLength = Number(res.headers.get("Content-Length"));
-          const threads = Number(threadsSelector.value);
-
-          if (contentLength < 32 * MiB * threads) {
-            const gap = Math.max(Math.floor(contentLength / threads), 8 * MiB); // concat in Blob directly
-            let offset = 0;
-            return Promise.all(
-              new Array(Math.ceil(contentLength / gap)).fill(void 0)
-                .map(
-                  (v, i) => new Promise((resolve, reject) => {
-                    const start = offset;
-                    let end = (offset += gap) - 1;
-                    if (end >= contentLength) end = "";
-                    rangeRequest(url, start, end)
-                      .catch(err => rangeRequest(url, start, end))  // retry
-                      .then(res => res.arrayBuffer())
-                      .then(resolve, reject)
-                      ;
-                  })
-                )
-            ).then(
-              results => {
-                const contentType = res.headers.get("Content-Type").split(";")[0];
-
-                const link = URL.createObjectURL(new Blob(results, { type: contentType }));
-                const a = document.createElement("A");
-                a.href = link;
-                a.download = res.headers.get("Content-Disposition").replace(
-                  /^attachment;\sfilename="(.+)?"/,
-                  (whole, filename) => decodeURIComponent(filename)
-                );
-                a.click();
-              }
-            );
-          } else {
-            if (!createWriteStream) {
-              createWriteStream = (await import("/_lib_/stream-saver/index.js")).createWriteStream;
-            }
-
-            const gap = 32 * MiB;
-            const fileStream = createWriteStream(res.headers);
-            const iterator = rangeYielder(url, gap, contentLength);
-
-            const responses = new class extends Array {
-              constructor(threads) {
-                super();
-                for (let i = 0; i < threads; i++) {
-                  this.push(iterator.next().value);
-                }
-              }
-
-              shift() {
-                if (!this.done) {
-                  const ret = iterator.next();
-                  if (ret.done) {
-                    this.done = true;
-                  } else {
-                    this.push(ret.value);
-                  }
-                }
-                return super.shift();
-              }
-
-              async pipeTo(writable) {
-                while (true) {
-                  const res = await this.shift();
-                  if (!res) break;
-                  await res.body.pipeTo(writable, { preventClose: true });
-                }
-                writable.close();
-              }
-            }(threads - 1);
-
-            return responses.pipeTo(fileStream);
-          }
-        }
-      )
-        .then(() => setTimeout(() => ProgressLog.instance.close(), 1200))
-        .catch(err => {
-          clearInterval(intervalTimer);
-          ProgressLog.instance.close();
-          console.error(err);
-          setTimeout(() => logAppend(url.pathname, err.message), 20);
-        })
-        .finally(removeBeforeUnloadListener)
-    } else {
-      const iframe = document.createElement('IFRAME');
-      iframe.hidden = true;
-      iframe.src = url;
-      iframe.addEventListener('load', () => {
-        logAppend(url.pathname, iframe.contentDocument.body.textContent);
-        iframe.remove();
-      }, { once: true });
-      document.body.appendChild(iframe);
-    }
-  }
 
   function logAppend(...argv) {
     log.value += argv.join(" ").concat("\n");
   }
 
-  async function rangeRequest(url, start, end) {
-    const { log, close } = ProgressLog.instance.bar(`Bytes ${start}-${end} `);
-    const progressCb = (loaded, total) => log(` ${(loaded / total * 100).toFixed(0)}%`);
-
-    return fetch(url, {
-      headers: new Headers({
-        "Range": `bytes=${start}-${end}`,
-        "Connection": "keep-alive"
-      })
-    }).then(response => {
-      const reader = response.body.getReader();
-      const total = parseInt(response.headers.get("Content-Length"), 10);
-      let loaded = 0;
-
-      return new Response(
-        new ReadableStream({
-          async start(controller) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                close(); break;
-              }
-              loaded += value.byteLength;
-              progressCb(loaded, total);
-              controller.enqueue(value);
-            }
-            controller.close();
-          }
-        })
-      );
-    });
-    ;
-  }
-
-  function* rangeYielder(url, gap, contentLength) {
-    for (let offset = 0; ;) {
-      const start = offset;
-      const end = (offset += gap) - 1;
-
-      if (end >= contentLength) {
-        return yield rangeRequest(url, start, "");
-      }
-      yield rangeRequest(url, start, end);
-    }
-  }
-
-  const beforeUnloadHandler = event => {
-    event.preventDefault();
-    return event.returnValue = "Are you sure you want to exit?";
-  };
-  function listenBeforeUnload() {
-    window.addEventListener("beforeunload", beforeUnloadHandler);
-  }
-  function removeBeforeUnloadListener() {
-    window.removeEventListener("beforeunload", beforeUnloadHandler);
-  }
-
-  function setList(dataList) {
-    fetch(
-      new URL(`${location.origin}/api?action=get-list&list=${encodeURIComponent("/")}`)
-    )
-      .then(res => {
-        if (res.status === 200)
-          return res.text();
-        throw new Error(`${res.status} ${res.statusText}`);
-      })
-      .then(
-        rawJSON => {
-          const files = JSON.parse(rawJSON);
-          dataList.innerHTML = files.sort(
-              (direntA, direntB) => {
-                if(direntA.type === "folder") {
-                  if(direntB.type === "folder") {
-                    return direntA.value.localeCompare(direntB.value);
-                  } else {
-                    return -1; // folder first
-                  }
-                } else {
-                  if(direntB.type === "file") {
-                    return direntA.value.localeCompare(direntB.value);
-                  } else {
-                    return -1;
-                  }
-                }
-              }
-            ).map(
-            ({ type, value }) => {
-              //TODO implement my own custom solution
-              switch (type) {
-                case "file":
-                  value = value.replace(/^\//, "");
-                  return  `<option type="${type}" value="${value}">`;
-                case "folder":
-                // value = value.replace(/([^\/])$/, "$1/");
-                  return  `<option type="${type}" value="${value}">`;
-              }
-            });
-        }
-      );
-  }
-
-  const fileSelect = document.getElementById("file-uploader");
-  const uploadDestination = document.getElementById("upload-target");
+  /**
+   * upload style
+   */
   const username = document.getElementById("username");
   const password = document.getElementById("password");
-  const uploadButton = document.getElementById("upload-button");
+
 
   username.addEventListener("keyup", event => {
     if(event.key === "ArrowDown" || event.key === "Enter") {
@@ -431,6 +137,66 @@
   if(localStorage["username"])
     username.value = localStorage["username"];
 
+  /**
+   * networking
+   */
+  import {
+    download,
+    upload,
+    setList,
+    ProgressLog
+  } from "/_lib_/www/request.js";
+
+  const beforeUnloadHandler = event => {
+    event.preventDefault();
+    return event.returnValue = "Are you sure you want to exit?";
+  };
+
+  function couplingDownload () {
+    if (!pathInput.value)
+      return logAppend("input required.");
+
+    const pathname = pathInput.value
+      .replace("\\", "/")
+      .replace(/\s/, "+")
+      .replace(/^([^\/])/, "/$1")
+    ;
+
+    if (!ProgressLog.instance) new ProgressLog(log);
+
+    window.addEventListener("beforeunload", beforeUnloadHandler);
+
+    return (
+      download(pathname)
+        .catch(err => {
+          console.error(err);
+          setTimeout(() => logAppend(url.pathname, err.message), 20);
+        })
+        .finally(
+          () => window.removeEventListener("beforeunload", beforeUnloadHandler)
+        )
+    );
+  }
+
+  /**
+   * download
+   */
+  const pathInput = document.getElementById("get-file-input");
+  const dataList = document.getElementById("get-file-input-datalist");
+  const downloadButton = document.getElementById("download-button");
+
+  setList(dataList);
+  pathInput.addEventListener("focus", () => setList(dataList));
+  downloadButton.addEventListener("click", couplingDownload, { passive: true });
+  pathInput.addEventListener("keyup", e => e.key === "Enter" && couplingDownload());
+
+  /**
+   * upload
+   */
+  const fileSelect = document.getElementById("file-uploader");
+  const uploadDestination = document.getElementById("upload-target");
+  const uploadButton = document.getElementById("upload-button");
+
   uploadButton.addEventListener("click", () => {
     if(!fileSelect.files.length)
       return logAppend("input required");
@@ -438,30 +204,19 @@
     localStorage["username"] = username.value;
 
     const file = fileSelect.files[0];
-    let destination = uploadDestination.value || file.name;
-    if(!/\.[^\\/]+$/.test(destination) && /\.[^\\/]+$/.test(file.name)) {
-      destination = destination.concat(file.name.match(/\.[^\\/]+$/)[0]);
-    } // add extension
+    const destination = uploadDestination.value || file.name;
     
-    fetch(
-      new URL(`${location.origin}/api?action=upload&path=${encodeURIComponent(destination)}`),
-      {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Authorization": `Basic ${btoa(`${username.value}:${password.value}`)}`,
-          "Content-Type": file.type,
-          "Content-Length": file.size
-        }
-      }
-    ).then(async res => {
-      if([200, 204, 201].includes(res.status))
-        logAppend(`Uploaded '${destination}' to ${decodeURIComponent(res.headers.get("Content-Location"))} - ${res.status} ${await res.text() || res.statusText}`)
-      else throw new Error(`${res.status} ${await res.text() || res.statusText}`)  
-    })
-      .catch(err => logAppend(`Upload '${uploadDestination.value}' errored: ${err.message}`))
-      .then(() => setList(dataList))
-  })
+    return (
+      upload(file, destination)
+        .then(async res => logAppend(
+          `Uploaded '${destination}' to ${decodeURIComponent(res.headers.get("Content-Location"))} - ${res.status} ${await res.text() || res.statusText}`
+        ))
+        .catch(err => logAppend(
+          `Upload '${destination}' errored: ${err.message}`
+        ))
+        .then(() => setList(dataList))
+    );
+  });
 </script>
 
 </html>
