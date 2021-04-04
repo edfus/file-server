@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="/_lib_/www/style/dark.css" media="(prefers-color-scheme: dark)">
   <script src="/_lib_/www/custom-elements.js" type="module"></script>
 </head>
-
 <body>
   <main style="margin: 10% auto;">
     <section>
@@ -24,7 +23,7 @@
           <span id="threads-count-wrapper" style="visibility: visible;">
             <input type="range" id="threads-count" name="t" min="4" max="32" value="12" step="2"
               style="visibility: inherit;">
-            <label for="threads-count" style="visibility: inherit;">12 threads</label>
+            <label for="threads-count" style="visibility: inherit; white-space: pre-wrap;">12 threads</label>
             <small id="multithreads-attention" style="visibility: inherit;">
               Attention: multithreaded download will consume up to 384 MiB RAM
             </small>
@@ -61,11 +60,9 @@
       </div>
     </section>
   </main>
-  <aside id="dark-mode-toggle-wrapper">
-    <dark-mode-toggle id="dark-mode-toggle" permanent="true" legend="Dark Mode" light="off" dark="on" remember="" mode="light" appearance="toggle"></dark-mode-toggle>
-  </aside>
 </body>
-<script type="module">
+</html>
+<script type="module" nonce="dfbar12m3">
   /**
    * isRangeRequest style
    */
@@ -90,13 +87,13 @@
   const threadsSelectorLabel = threadsSelector.parentNode.querySelector('label[for="threads-count"]');
   const multithreadsAttention = threadsSelector.parentNode.querySelector('#multithreads-attention');
   threadsSelector.onchange = () => {
-    const v = threadsSelector.value.length === 1 ? "&nbsp;&nbsp;".concat(threadsSelector.value) : threadsSelector.value;
-    threadsSelectorLabel.innerHTML = `${v} threads`;
+    const v = threadsSelector.value.length === 1 ? "  ".concat(threadsSelector.value) : threadsSelector.value;
+    threadsSelectorLabel.textContent = `${v} threads`;
     multithreadsAttention.innerText =
       multithreadsAttention.innerText.replace(/\d+(?=\sMiB\sRAM$)/i, Number(threadsSelector.value) * 32)
       ;
     localStorage["threadsSelector.value"] = threadsSelector.value;
-  }
+  };
   threadsSelector.value = Number(localStorage["threadsSelector.value"]);
   threadsSelector.onchange();
 
@@ -118,23 +115,22 @@
   const username = document.getElementById("username");
   const password = document.getElementById("password");
 
-
   username.addEventListener("keyup", event => {
-    if(event.key === "ArrowDown" || event.key === "Enter") {
+    if (event.key === "ArrowDown" || event.key === "Enter") {
       password.focus();
     }
   });
 
   password.addEventListener("keyup", event => {
-    if(event.key === "ArrowUp") {
+    if (event.key === "ArrowUp") {
       username.focus();
     }
-    if(event.key === "Enter") {
+    if (event.key === "Enter") {
       uploadButton.click();
     }
   });
 
-  if(localStorage["username"])
+  if (localStorage["username"])
     username.value = localStorage["username"];
 
   /**
@@ -152,7 +148,7 @@
     return event.returnValue = "Are you sure you want to exit?";
   };
 
-  function couplingDownload () {
+  function couplingDownload() {
     if (!pathInput.value)
       return logAppend("input required.");
 
@@ -160,7 +156,7 @@
       .replace("\\", "/")
       .replace(/\s/, "+")
       .replace(/^([^\/])/, "/$1")
-    ;
+      ;
 
     if (!ProgressLog.instance) new ProgressLog(log);
 
@@ -179,17 +175,17 @@
   }
 
   let unauthorized = false, authCache;
-  async function couplingSetList (dataList, auth) {
-    if(authCache && !auth) {
+  async function couplingSetList(dataList, auth) {
+    if (authCache && !auth) {
       auth = authCache;
     }
-    if(unauthorized && !auth)
-      return ;
+    if (unauthorized && !auth)
+      return;
     return (
       setList(dataList, auth)
         .then(() => authCache = auth)
         .catch(err => unauthorized = true)
-    )
+    );
   }
 
   /**
@@ -212,19 +208,19 @@
   const uploadButton = document.getElementById("upload-button");
 
   uploadButton.addEventListener("click", () => {
-    if(!fileSelect.files.length)
+    if (!fileSelect.files.length)
       return logAppend("input required");
 
     localStorage["username"] = username.value;
 
     const file = fileSelect.files[0];
     const destination = uploadDestination.value || file.name;
-    const auth = `Basic ${btoa(`${username.value}:${password.value}`)}`
+    const auth = `Basic ${btoa(`${username.value}:${password.value}`)}`;
 
     return (
       upload(file, destination, auth)
         .then(async res => logAppend(
-          `Uploaded '${destination}' to ${decodeURIComponent(res.headers.get("Content-Location"))} - ${res.status} ${await res.text() || res.statusText}`
+          `${res.status} ${await res.text() || res.statusText}`
         ))
         .then(() => couplingSetList(dataList, auth))
         .catch(err => logAppend(
@@ -233,5 +229,3 @@
     );
   });
 </script>
-
-</html>

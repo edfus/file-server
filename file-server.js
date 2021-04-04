@@ -9,6 +9,8 @@ import EventEmitter from "events";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const local = (...paths) => join(__dirname, ...paths.map(p => normalize(p)));
 
+const indexHTML = local("./lib/www/index.html");
+
 class App extends EventEmitter {
   middlewares = [];
   context = {
@@ -82,6 +84,7 @@ class App extends EventEmitter {
   }
 }
 
+const nonce = "nonce-dfbar12m3";
 class Serve {
   implementedMethods = ["GET", "PUT", "HEAD"];
   listCache = new Map();
@@ -103,7 +106,7 @@ class Serve {
         if (/\/index.html?$/.test(pathname))
           return {
             done: true,
-            value: local("./lib/www/index.html")
+            value: indexHTML
           };
         return pathname;
       },
@@ -124,6 +127,17 @@ class Serve {
   fileResHeadersRouter = {
     cacheControl: [
       extension => "no-cache"
+    ],
+    CSP: [
+      filepath => {
+        if(filepath === indexHTML)
+          return {
+            done: true,
+            value: `object-src 'none'; script-src 'self' '${nonce}' 'unsafe-inline'; require-trusted-types-for 'script';`
+          }
+        return filepath;
+      },
+      filepath => ""
     ]
   }
 
@@ -394,6 +408,10 @@ class Serve {
           "Last-Modified": lastModified,
           "ETag": eTag,
           "Accept-Ranges": "bytes",
+          "Content-Security-Policy": this.routeThrough(
+            filepath,
+            this.fileResHeadersRouter.CSP
+          ),
           "Cache-Control": this.routeThrough(
             fileExtname,
             this.fileResHeadersRouter.cacheControl
