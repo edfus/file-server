@@ -213,7 +213,12 @@ export const questions = [
   {
     type: prev => prev && 'password',
     name: '_passwd_confirm',
-    validate: value => value === passwd_tmp,
+    validate (value) {
+      return (
+        (this.initial && value === this.initial)
+        || value === passwd_tmp
+      );
+    },
     initial (prev) {
       passwd_tmp = prev;
       return "";

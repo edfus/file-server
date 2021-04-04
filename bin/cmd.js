@@ -87,7 +87,10 @@ const { prompt } = prompts;
   }
 
   if(shouldPrompt) {
-    requirements = await prompt(questions);
+    requirements = {
+      ...typeof requirements === "object" ? requirements : {},
+      ...await prompt(questions)
+    };
 
     if(Object.keys(requirements).length > 5)
       cache.set("requirements", requirements);
@@ -142,7 +145,7 @@ const { prompt } = prompts;
 
   if(!requirements.useSelfSignedCert) {
     if(!requirements.key || !requirements.cert) {
-      if(!["localhost", "127.0.0.1"].includes(requirements.hostname)) {
+      if(!["localhost", "127.0.0.1", undefined].includes(requirements.hostname)) {
         console.error("Self signed certificate is valid only for hostnames ['localhost', '127.0.0.1']");
         protocol = "http:";
       }
