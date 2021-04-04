@@ -77,10 +77,10 @@ class Log {
   constructor (outputDir) {
     this.outputDir = outputDir || "./";
   }
-  critical(entry) {
+  critical(entry, silent) {
     if(!this._critical)
       this._critical = createWriteStream(join(this.outputDir, "./critical.log"), { flags: "a" });
-    // console.error(entry);
+    !silent && console.error(entry);
     this._critical.write(
       String(entry).concat("\n")
     );

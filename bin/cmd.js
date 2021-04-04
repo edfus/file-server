@@ -8,15 +8,8 @@ import { createServer as net_server } from "net";
 import { App, Serve } from "../file-server.js";
 import { JSONCache, Log, questions, local } from "./helpers.js";
 
-if(!existsSync(local("../node_modules/prompts/index.js"))) {
-  throw new Error(
-    [
-      `Can't find dependency 'prompts' at ${local("../node_modules/prompts")}`,
-      "Try 'npm install prompts'"
-    ].join("\n")
-  )
-}
-
+import prompts from "prompts";
+const { prompt } = prompts;
 /**
  * 
  * main
@@ -26,7 +19,6 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
 (async () => {
   const app = new App();
   const cache = new JSONCache();
-  const prompt = (await import("../node_modules/prompts/index.js")).default.prompt;
 
   /**
    * user input
@@ -232,7 +224,7 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
     socket.on("close", () => sockets.delete(socket));
   });
 
-  process.on("SIGINT", () => {
+  const shutdown = () => {
     console.info("Shutting down...");
     Object.values(servers).forEach(server => server.close());
     for (const socket of sockets.values()) {
@@ -240,11 +232,14 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
     }
     process.exitCode = 0;
     setTimeout(() => process.exit(0), 1000).unref(); //
-  });
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGQUIT", shutdown);
 
   process.on('uncaughtExceptionMonitor', err => {
-    logger.critical("There was an uncaught error\n".concat(err.stack));
-  });  
+    logger.critical("There was an uncaught error\n".concat(err.stack, true));
+  });
 })();
 
 function getServerAddress(server) {

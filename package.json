@@ -13,7 +13,7 @@
   "keywords": ["http-server", "static", "local"],
   "author": "edfus",
   "license": "ISC",
-  "optionalDependencies": {
+  "dependencies": {
     "prompts": "^2.4.0"
   }
 }

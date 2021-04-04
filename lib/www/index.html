@@ -166,7 +166,7 @@
       download(pathname)
         .catch(err => {
           console.error(err);
-          setTimeout(() => logAppend(url.pathname, err.message), 20);
+          setTimeout(() => logAppend(err.message), 20);
         })
         .finally(
           () => window.removeEventListener("beforeunload", beforeUnloadHandler)
