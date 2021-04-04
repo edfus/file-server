@@ -178,6 +178,20 @@
     );
   }
 
+  let unauthorized = false, authCache;
+  async function couplingSetList (dataList, auth) {
+    if(authCache && !auth) {
+      auth = authCache;
+    }
+    if(unauthorized && !auth)
+      return ;
+    return (
+      setList(dataList, auth)
+        .then(() => authCache = auth)
+        .catch(err => unauthorized = true)
+    )
+  }
+
   /**
    * download
    */
@@ -185,8 +199,8 @@
   const dataList = document.getElementById("get-file-input-datalist");
   const downloadButton = document.getElementById("download-button");
 
-  setList(dataList);
-  pathInput.addEventListener("focus", () => setList(dataList));
+  couplingSetList(dataList);
+  pathInput.addEventListener("focus", () => couplingSetList(dataList));
   downloadButton.addEventListener("click", couplingDownload, { passive: true });
   pathInput.addEventListener("keyup", e => e.key === "Enter" && couplingDownload());
 
@@ -205,16 +219,17 @@
 
     const file = fileSelect.files[0];
     const destination = uploadDestination.value || file.name;
-    
+    const auth = `Basic ${btoa(`${username.value}:${password.value}`)}`
+
     return (
-      upload(file, destination)
+      upload(file, destination, auth)
         .then(async res => logAppend(
           `Uploaded '${destination}' to ${decodeURIComponent(res.headers.get("Content-Location"))} - ${res.status} ${await res.text() || res.statusText}`
         ))
+        .then(() => couplingSetList(dataList, auth))
         .catch(err => logAppend(
           `Upload '${destination}' errored: ${err.message}`
         ))
-        .then(() => setList(dataList))
     );
   });
 </script>
