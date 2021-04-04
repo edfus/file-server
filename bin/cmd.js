@@ -64,9 +64,6 @@ const { prompt } = prompts;
         inactive: 'No'
       }));
 
-      if(!usePrevious)
-        requirements = {};
-
       shouldPrompt = !usePrevious;
     }
 
