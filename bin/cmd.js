@@ -47,15 +47,31 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
 
   let shouldPrompt = true;
 
+  if(process.argv[2]) {
+    const location = process.argv[2];
+    if(existsSync(location)) {
+      shouldPrompt = false;
+      if(typeof requirements === "object") {
+        requirements.location = location;
+      } else {
+        requirements = { location };
+      }
+    } else {
+      console.error(`${process.argv[2]} DO NOT exist`);
+    }
+  }
+
   if(typeof requirements === "object") {
-    shouldPrompt = !(await prompt({
-      type: 'toggle',
-      name: 'load',
-      message: 'Use previous configuration?',
-      initial: true,
-      active: 'Yes',
-      inactive: 'No'
-    })).load;
+    if(shouldPrompt) {
+      shouldPrompt = !(await prompt({
+        type: 'toggle',
+        name: 'load',
+        message: 'Use previous configuration?',
+        initial: true,
+        active: 'Yes',
+        inactive: 'No'
+      })).load;
+    }
 
     // set initial value from remembered config
     questions.forEach(q => 
@@ -63,7 +79,8 @@ if(!existsSync(local("../node_modules/prompts/index.js"))) {
       ? q.initial = requirements[q.name]
       : void 0
     );
-     // set initial value for multiselect autocompleteMultiselect
+    
+    // set initial value for multiselect autocompleteMultiselect
     questions.forEach(q => 
       Array.isArray(q.choices)
         ? Array.isArray(q.initial) && q.initial.forEach(
