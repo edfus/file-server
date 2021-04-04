@@ -1,5 +1,18 @@
+:root {
+  --dark-mode-toggle-light-icon: url("/_lib_/dark-mode-toggle/sun.png");
+  --dark-mode-toggle-dark-icon: url("/_lib_/dark-mode-toggle/moon.png");
+  --dark-mode-toggle-remember-icon-unchecked: url("/_lib_/dark-mode-toggle/unchecked.svg");
+  --dark-mode-toggle-remember-icon-checked: url("/_lib_/dark-mode-toggle/checked.svg");
+  --background-color: white;
+  --text-color: rgb(15, 15, 15);
+  --inverted-text-color: white;
+  --readonly-bg-color: #026DC5;
+}
+
 html {
   font-size: 30px;
+  color: var(--text-color);
+  background-color: var(--background-color);
 }
 
 section {
@@ -45,4 +58,10 @@ input[type=range] {
 }
 #file-uploader:focus {
   outline: solid;
+}
+
+#dark-mode-toggle-wrapper {
+  position: absolute;
+  right: 5%;
+  top: 5%
 }

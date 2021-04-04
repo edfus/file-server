@@ -108,10 +108,10 @@ class Serve {
         return pathname;
       },
       pathname => {
-        if (/^\/stream-saver\//.test(pathname))
+        if (/^\/_lib_\//.test(pathname))
           return {
             done: true,
-            value: local("./lib/", pathname)
+            value: local("./lib/", pathname.replace(/^\/_lib_\//, ""))
           };
         return { done: false, value: pathname };
       }
@@ -120,6 +120,12 @@ class Serve {
       pathname => pathname.endsWith("/") ? pathname : pathname.concat("/")
     ]
   };
+
+  fileResHeadersRouter = {
+    cacheControl: [
+      extension => "no-cache"
+    ]
+  }
 
   mount (directory) {
     this.pathnameRouter.dir.push(pathname => join(directory, normalize(pathname)));
@@ -250,7 +256,7 @@ class Serve {
       "You DO NOT have the permission to create folders"
     );
 
-    let destination = uploadTarget;
+    let destination = uploadTarget; // decoded
 
     // content-type
     if (!/\.[^\\/]+$/.test(destination) && req.headers["content-type"]) {
@@ -289,7 +295,7 @@ class Serve {
           }
 
           res.writeHead(200, {
-            "Content-Location": destination
+            "Content-Location": encodeURIComponent(destination)
           }).flushHeaders();
   
           pipeline(
@@ -309,7 +315,7 @@ class Serve {
       });
     } else {
       res.writeHead(201, {
-        "Content-Location": destination
+        "Content-Location": encodeURIComponent(destination)
       }).flushHeaders();
 
       return new Promise((resolve, reject) => {
@@ -388,7 +394,10 @@ class Serve {
           "Last-Modified": lastModified,
           "ETag": eTag,
           "Accept-Ranges": "bytes",
-          "Cache-Control": "private, max-age=864000" // 10 days
+          "Cache-Control": this.routeThrough(
+            fileExtname,
+            this.fileResHeadersRouter.cacheControl
+          ) || "private, max-age=864000" // 10 days
         };
   
         if (isDownload) {
@@ -398,7 +407,7 @@ class Serve {
         }
   
         if (stats.size === 0)
-          return res.writeHead(204, "Empty file", headers).end("Empty file", resolve);
+          return res.writeHead(204, "Empty file", headers).end(resolve);
   
         let _start_ = 0, _end_ = stats.size - 1;
         if (req.headers["range"]) {

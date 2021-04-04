@@ -3,56 +3,9 @@
 
 <head>
   <title>File-Server.local</title>
-  <style>
-    html {
-      font-size: 30px;
-    }
-
-    section {
-      display: flex;
-      flex-direction: row;
-      column-gap: 2rem;
-      justify-content: center;
-    }
-
-    input,
-    button,
-    textarea,
-    small {
-      font-size: .83rem;
-    }
-
-    input {
-      padding: 0.0625rem .125rem
-    }
-
-    button,
-    input[type=reset] {
-      padding: 0.0625rem .375rem
-    }
-
-    #multithreads-attention {
-      display: block;
-      padding-left: 1rem;
-      font-size: 0.8rem;
-    }
-
-    input[type=range],
-    input[type=checkbox] {
-      transform: scale(1.6);
-    }
-
-    input[type=range] {
-      margin: 0 1.4rem;
-    }
-
-    #file-uploader {
-      outline: dashed 1px rgba(118, 118, 118, .5);
-    }
-    #file-uploader:focus {
-      outline: solid;
-    }
-  </style>
+  <link rel="stylesheet" href="/_lib_/www/style/common.css">
+  <link rel="stylesheet" href="/_lib_/www/style/dark.css" media="(prefers-color-scheme: dark)">
+  <script src="/_lib_/www/custom-elements.js" type="module"></script>
 </head>
 
 <body>
@@ -107,6 +60,9 @@
       </div>
     </section>
   </main>
+  <aside id="dark-mode-toggle-wrapper">
+    <dark-mode-toggle id="dark-mode-toggle" permanent="true" legend="Dark Mode" light="off" dark="on" remember="" mode="light" appearance="toggle"></dark-mode-toggle>
+  </aside>
 </body>
 <script type="module">
   const map = { "true": "visible", "false": "hidden" };
@@ -285,7 +241,7 @@
             );
           } else {
             if (!createWriteStream) {
-              createWriteStream = (await import("/stream-saver/index.js")).createWriteStream;
+              createWriteStream = (await import("/_lib_/stream-saver/index.js")).createWriteStream;
             }
 
             const gap = 32 * MiB;
@@ -476,13 +432,7 @@
     username.value = localStorage["username"];
 
   uploadButton.addEventListener("click", () => {
-    if(
-      !fileSelect.files.length
-      || 
-      !username.value
-      ||
-      !password.value
-    )
+    if(!fileSelect.files.length)
       return logAppend("input required");
 
     localStorage["username"] = username.value;
@@ -492,6 +442,7 @@
     if(!/\.[^\\/]+$/.test(destination) && /\.[^\\/]+$/.test(file.name)) {
       destination = destination.concat(file.name.match(/\.[^\\/]+$/)[0]);
     } // add extension
+    
     fetch(
       new URL(`${location.origin}/api?action=upload&path=${encodeURIComponent(destination)}`),
       {
@@ -505,7 +456,7 @@
       }
     ).then(async res => {
       if([200, 204, 201].includes(res.status))
-        logAppend(`Uploaded '${destination}' to ${res.headers.get("Content-Location")} - ${res.status} ${await res.text() || res.statusText}`)
+        logAppend(`Uploaded '${destination}' to ${decodeURIComponent(res.headers.get("Content-Location"))} - ${res.status} ${await res.text() || res.statusText}`)
       else throw new Error(`${res.status} ${await res.text() || res.statusText}`)  
     })
       .catch(err => logAppend(`Upload '${uploadDestination.value}' errored: ${err.message}`))

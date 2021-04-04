@@ -1,0 +1,42 @@
+:root {
+  --background-color: rgb(15, 15, 15);
+  --text-color: rgb(240, 240, 240);
+  --shadow-color: rgba(240, 240, 240, 0.5);
+  --accent-color: rgba(0, 0, 240, 0.5);
+}
+
+img {
+  filter: grayscale(50%);
+}
+
+.icon {
+  filter: invert(100%);
+}
+
+a {
+  color: yellow;
+}
+
+/* If no dark mode user agent stylesheet exists, emulate it */
+select,
+input,
+button,
+textarea,
+option {
+  color: var(--text-color);
+  background-color: var(--background-color);
+  border-color: var(--text-color);
+}
+
+/* Else, use the user agent stylesheet */
+@media (prefers-color-scheme: dark) {
+  select,
+  input,
+  button,
+  textarea,
+  option {
+    color: unset;
+    background-color: unset;
+    border-color: unset;
+  }
+}
