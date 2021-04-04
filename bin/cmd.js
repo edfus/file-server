@@ -55,14 +55,19 @@ const { prompt } = prompts;
 
   if(typeof requirements === "object") {
     if(shouldPrompt) {
-      shouldPrompt = !(await prompt({
+      const { usePrevious } = !(await prompt({
         type: 'toggle',
-        name: 'load',
+        name: 'usePrevious',
         message: 'Use previous configuration?',
         initial: true,
         active: 'Yes',
         inactive: 'No'
-      })).load;
+      }));
+
+      if(!usePrevious)
+        requirements = {};
+
+      shouldPrompt = !usePrevious;
     }
 
     // set initial value from remembered config
@@ -141,7 +146,7 @@ const { prompt } = prompts;
    * create servers
    */
   const servers = {};
-  let protocol = requirements.notTLS ? "http:" : "https:";
+  let protocol = requirements.notTLS !== false ? "http:" : "https:";
 
   if(!requirements.useSelfSignedCert) {
     if(!requirements.key || !requirements.cert) {

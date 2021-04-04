@@ -163,7 +163,7 @@
     window.addEventListener("beforeunload", beforeUnloadHandler);
 
     return (
-      download(pathname)
+      download(pathname, isRangeRequest.checked, threadsSelector.value)
         .catch(err => {
           console.error(err);
           setTimeout(() => logAppend(err.message), 20);

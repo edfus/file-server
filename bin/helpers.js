@@ -55,7 +55,7 @@ class JSONCache {
       const encrypted = rawData.slice(offset);
 
       const password = await passwordCallback();
-      if(!password.length) 
+      if(!password?.length) 
         return false;
 
       const key = createHash('sha1').update(password).digest().slice(0, 16);
