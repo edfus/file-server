@@ -4,7 +4,7 @@
 
 ---
 
-<img src="https://raw.github.com/edfus/file-server/master/img/terminal.svg?sanitize=true">
+<img src="https://raw.github.com/edfus/file-server/master/img/terminal.gif">
 
 This package is developed as an easy and quick mean to share files across my LAN with some more abilities like authorization / client upload / client range request.
 
@@ -59,7 +59,7 @@ app.listen(0, "localhost", function () {
 
 This package has two named exports:
 
-### `App
+### `App`
 
 A minimal implementation of [Koa](https://koajs.com/).
 
@@ -95,8 +95,9 @@ See <https://github.com/edfus/file-server/master/file-server.d.ts> for more deta
 
 ### `Serve`
 
-```ts
+The core of this package, highly decoupled.
 
+```ts
 class Serve {
   constructor();
   implementedMethods: ["GET", "PUT", "HEAD"];
@@ -145,6 +146,45 @@ class Serve {
   listCache: Map<string, object>;
   mimeCache: Map<string, string>;
 }
+```
+
+Edit Serve#pathnameRouter to suit your needs:
+
+```js
+  pathnameRouter = {
+    map: [
+      pathname => pathMap.has(pathname) ? pathMap.get(pathname) : pathname,
+    ],
+    filter: [
+      // hide all files starting with . in their names
+      pathname => basename(pathname).startsWith(".") ? false : pathname
+    ],
+    fs: [
+      pathname => pathname.replace(/<|>|:|"|\||\?|\*/g, "-")
+    ],
+    file: [
+      pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname,
+      pathname => {
+        if (/\/index.html?$/.test(pathname))
+          return {
+            done: true,
+            value: indexHTML
+          };
+        return pathname;
+      },
+      pathname => {
+        if (/^\/_lib_\//.test(pathname))
+          return {
+            done: true,
+            value: local("./lib/", pathname.replace(/^\/_lib_\//, ""))
+          };
+        return { done: false, value: pathname };
+      }
+    ],
+    dir: [
+      pathname => pathname.endsWith("/") ? pathname : pathname.concat("/")
+    ]
+  };
 ```
 
 ## Notes
