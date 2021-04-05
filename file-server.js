@@ -1,10 +1,11 @@
 import { stat, createWriteStream, createReadStream, readdir, existsSync } from "fs";
-import { extname, basename, join, normalize, dirname, resolve } from "path";
+import { extname, basename, join, normalize, dirname } from "path";
 import { pipeline } from "stream";
 import mime from "./env/mime.js";
 import pathMap from "./env/path-map.js";
 import { fileURLToPath } from "url";
 import EventEmitter from "events";
+import { createServer } from "http";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const local = (...paths) => join(__dirname, ...paths.map(p => normalize(p)));
@@ -81,6 +82,13 @@ class App extends EventEmitter {
         req.resume();
       }
     }
+  }
+
+  listen (...argvs) {
+    return (
+      createServer(this.callback())
+      .listen(...argvs)
+    );
   }
 }
 
@@ -340,6 +348,9 @@ class Serve {
             if(error) {
               error.status = 500;
               error.expose = false;
+              if(error.code === "ERR_STREAM_PREMATURE_CLOSE") {
+                return reject(error.message);
+              }
               return reject(error);
             }
             return res.end(`Created ${destination}`, resolve);
@@ -479,6 +490,9 @@ class Serve {
             if(error) {
               error.status = 500;
               error.expose = false;
+              if(error.code === "ERR_STREAM_PREMATURE_CLOSE") {
+                return reject(error.message);
+              }
               return reject(error);
             }
 
