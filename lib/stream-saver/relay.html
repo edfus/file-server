@@ -49,6 +49,7 @@
           unhandledMessages.forEach(args => window.onmessage.apply(void 0, args));
         }
       )
+      .catch(parent[`__iframe${btoa(`${location.pathname}${location.search}${location.hash}`)}OnError`])
     ;
     
     function uuid() {

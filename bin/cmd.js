@@ -194,7 +194,7 @@ const { prompt } = prompts;
     hostname,
     function () {
       console.info(
-        `File server is running at ${protocol}//${getServerAddress(this)}`
+        `File server is running at ${protocol}//${hostname}:${this.address().port}`
       );
     }
   );
@@ -246,12 +246,3 @@ const { prompt } = prompts;
     logger.critical("There was an uncaught error\n".concat(err.stack, true));
   });
 })();
-
-function getServerAddress(server) {
-  const address = server.address();
-  return (
-    address.family === "IPv6"
-    ? `[${address.address}]:${address.port}`
-    : `${address.address}:${address.port}`
-  );
-}

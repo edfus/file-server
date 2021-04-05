@@ -189,6 +189,6 @@ Edit Serve#pathnameRouter to suit your needs:
 
 ## Notes
 
-./lib/stream-saver is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transform stream](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream#browser_compatibility) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
+./lib/stream-saver is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
 
 Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for $indexHTML. Delete lines in `Serve#fileResHeadersRouter.CSP` if needed.
