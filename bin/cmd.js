@@ -55,14 +55,14 @@ const { prompt } = prompts;
 
   if(typeof requirements === "object") {
     if(shouldPrompt) {
-      const { usePrevious } = !(await prompt({
+      const { usePrevious } = await prompt({
         type: 'toggle',
         name: 'usePrevious',
         message: 'Use previous configuration?',
         initial: true,
         active: 'Yes',
         inactive: 'No'
-      }));
+      });
 
       shouldPrompt = !usePrevious;
     }
@@ -102,19 +102,19 @@ const { prompt } = prompts;
    * add middlewares
    */
   if (requirements.auth?.length) {
-    requirements.auth = requirements.auth.map(
+    const authRules = requirements.auth.map(
       ruleStr => new RegExp(ruleStr, "i")
     );
 
-    const basicAuth = Buffer.from(
+    const basicAuth = `Basic ${Buffer.from(
       `${requirements.username}:${requirements.password}`
-    ).toString("base64");
+    ).toString("base64")}`;
 
     app.use(
       (ctx, next) => {
         const { req, res, state } = ctx;
 
-        if (requirements.auth.some(rule => rule.test(state.pathname))) {
+        if (authRules.some(rule => rule.test(state.pathname))) {
           const authorization = req.headers["authorization"];
 
           if (!authorization) {
@@ -124,7 +124,7 @@ const { prompt } = prompts;
             }).end();
           }
 
-          if (authorization !== `Basic ${basicAuth}`) {
+          if (authorization !== basicAuth) {
             return res.writeHead(401, {
               "WWW-Authenticate": `Basic realm="restricted"`
             }).end("Wrong username or password");
