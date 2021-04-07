@@ -1,4 +1,5 @@
 img/*
 *.cache
+*.log
 package-lock.json
 bin/dev/cipher-test.js
