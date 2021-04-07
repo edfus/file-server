@@ -220,8 +220,23 @@
     "input", () => couplingSetList(pathInput.value, direntListId)
   );
 
+  const initialWidth = pathInput.offsetWidth * 1.5;
+  const initialStyle = pathInput.style.width;
+  const fontSize = parseFloat(getComputedStyle(pathInput).fontSize);
+  const padding = 4;
+
   downloadButton.addEventListener("click", couplingDownload, { passive: true });
   pathInput.addEventListener("keyup", e => e.key === "Enter" && couplingDownload());
+
+  pathInput.addEventListener("input", e => {
+    const length = pathInput.value.length + padding;
+    if(length * fontSize > initialWidth) {
+      pathInput.style.width = String(length).concat("ch");
+    } else {
+      pathInput.style.width = initialStyle;
+    }
+    console.log(length * fontSize, initialWidth)
+  });
 
   pathInput.focus();
   /**
