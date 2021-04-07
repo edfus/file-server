@@ -239,14 +239,14 @@ class Serve {
             if (dirent.isFile()) {
               return {
                 type: "file",
-                value: dirToList.concat(dirent.name)
+                value: join(dirToList, dirent.name).replace(/\\/g, "/")
               }
             }
 
             if(dirent.isDirectory()) {
               return {
                 type: "folder",
-                value: dirToList.concat(dirent.name)
+                value: join(dirToList, dirent.name).replace(/\\/g, "/")
               }
             }
           })

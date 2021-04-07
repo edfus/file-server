@@ -139,7 +139,7 @@
   import {
     download,
     upload,
-    setList,
+    DirentListFetcher,
     ProgressLog
   } from "/_lib_/www/request.js";
 
@@ -173,22 +173,38 @@
     );
   }
 
+  const fetcher = new DirentListFetcher();
+
   let unauthorized = false, authCache;
-  async function couplingSetList(id, auth) {
+  async function couplingSetList(path, id, auth) {
     if (authCache && !auth) {
       auth = authCache;
     }
+
     if (unauthorized && !auth)
       return;
-    return (
-      setList(id, auth)
-        .then(() => authCache = auth)
-        .catch(err => {
-          if(err.message.startsWith("401"))
-            unauthorized = true;
-          else throw err;
-        })
-    );
+
+    const result = fetcher.updateDirentList(path, document.getElementById(id));
+
+    switch (result) {
+      case "ok": return ;
+      case "empty": return (
+        fetcher.fetch(path, auth)
+          .then(list => {
+            if(auth)
+              authCache = auth;
+
+            return fetcher.updateDirentList(path, document.getElementById(id));
+          })
+          .catch(err => {
+            if(err.message.startsWith("401"))
+              unauthorized = true;
+            else throw err;
+          })
+      );
+      default:
+        return ;
+    }
   }
 
   /**
@@ -197,8 +213,13 @@
   const pathInput = document.getElementById("get-file-input");
   const downloadButton = document.getElementById("download-button");
 
-  couplingSetList("get-file-input-datalist");
-  pathInput.addEventListener("focus", () => couplingSetList("get-file-input-datalist"));
+  const direntListId = "get-file-input-datalist";
+
+  couplingSetList("/", direntListId);
+  pathInput.addEventListener(
+    "input", () => couplingSetList(pathInput.value, direntListId)
+  );
+
   downloadButton.addEventListener("click", couplingDownload, { passive: true });
   pathInput.addEventListener("keyup", e => e.key === "Enter" && couplingDownload());
 
@@ -225,7 +246,11 @@
         .then(async res => logAppend(
           `${res.status} ${await res.text() || res.statusText}`
         ))
-        .then(() => couplingSetList("get-file-input-datalist", auth))
+        .then(() => couplingSetList(
+          "/",
+          "get-file-input-datalist",
+          auth
+        ))
         .catch(err => logAppend(
           `Upload '${destination}' errored: ${err.message}`
         ))
