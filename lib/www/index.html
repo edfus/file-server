@@ -176,7 +176,7 @@
   const fetcher = new DirentListFetcher();
 
   let unauthorized = false, authCache;
-  async function couplingSetList(path, id, auth) {
+  async function couplingSetList(path, id, auth, force) {
     if (authCache && !auth) {
       auth = authCache;
     }
@@ -187,7 +187,10 @@
     const result = fetcher.updateDirentList(path, document.getElementById(id));
 
     switch (result) {
-      case "ok": return ;
+      case "ok":
+        if(!force)
+          return ;
+        /* fall through */
       case "empty": return (
         fetcher.fetch(path, auth)
           .then(list => {
@@ -264,7 +267,8 @@
         .then(() => couplingSetList(
           "/",
           "get-file-input-datalist",
-          auth
+          auth,
+          true
         ))
         .catch(err => logAppend(
           `Upload '${destination}' errored: ${err.message}`
