@@ -13,9 +13,9 @@
     <section>
       <div>
         <label for="get-file-input">What do you want?</label>
-        <input type="search" id="get-file-input" name="q" pattern="[^|>&*']*" list="get-file-input-datalist">
+        <input type="search" id="get-file-input" name="q" pattern="[^|>&*']*">
         <button id="download-button">download</button>
-        <datalist id="get-file-input-datalist"></datalist>
+        <dirent-list id="get-file-input-datalist" for="get-file-input"></dirent-list>
         <div>
           <input type="checkbox" id="is-range-request" name="r">
           <label for="is-range-request">Use multithreaded download</label>
@@ -47,11 +47,11 @@
         <section style="margin-top: 1rem">
           <div>
             <label for="username" style="display: inline-block; width: 5rem;">Username:</label>
-            <input type="text" id="username" name="username">
+            <input type="text" autocomplete="username" id="username" name="username">
   
             <div>
               <label for="pass" style="display: inline-block; width: 5rem;">Password:</label>
-              <input type="password" id="password" name="password" minlength="8" required>
+              <input type="password" autocomplete="current-password" id="password" name="password" minlength="8" required>
             </div>
           </div>
 
@@ -153,8 +153,7 @@
       return logAppend("input required.");
 
     const pathname = pathInput.value
-      .replace("\\", "/")
-      .replace(/\s/, "+")
+      .replace(/[\\\/]+/, "/")
       .replace(/^([^\/])/, "/$1")
       ;
 
@@ -175,16 +174,20 @@
   }
 
   let unauthorized = false, authCache;
-  async function couplingSetList(dataList, auth) {
+  async function couplingSetList(id, auth) {
     if (authCache && !auth) {
       auth = authCache;
     }
     if (unauthorized && !auth)
       return;
     return (
-      setList(dataList, auth)
+      setList(id, auth)
         .then(() => authCache = auth)
-        .catch(err => unauthorized = true)
+        .catch(err => {
+          if(err.message.startsWith("401"))
+            unauthorized = true;
+          else throw err;
+        })
     );
   }
 
@@ -192,14 +195,14 @@
    * download
    */
   const pathInput = document.getElementById("get-file-input");
-  const dataList = document.getElementById("get-file-input-datalist");
   const downloadButton = document.getElementById("download-button");
 
-  couplingSetList(dataList);
-  pathInput.addEventListener("focus", () => couplingSetList(dataList));
+  couplingSetList("get-file-input-datalist");
+  pathInput.addEventListener("focus", () => couplingSetList("get-file-input-datalist"));
   downloadButton.addEventListener("click", couplingDownload, { passive: true });
   pathInput.addEventListener("keyup", e => e.key === "Enter" && couplingDownload());
 
+  pathInput.focus();
   /**
    * upload
    */
@@ -222,7 +225,7 @@
         .then(async res => logAppend(
           `${res.status} ${await res.text() || res.statusText}`
         ))
-        .then(() => couplingSetList(dataList, auth))
+        .then(() => couplingSetList("get-file-input-datalist", auth))
         .catch(err => logAppend(
           `Upload '${destination}' errored: ${err.message}`
         ))

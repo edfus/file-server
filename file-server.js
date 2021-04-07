@@ -46,7 +46,7 @@ class App extends EventEmitter {
         ...this.context,
         req, res,
         state: {
-          pathname: decodeURIComponent(uriObject.pathname).replace(/\+/g, " "),
+          pathname: decodeURIComponent(uriObject.pathname),
           uriObject: uriObject
         },
         url: uriObject.toString(),
@@ -111,7 +111,7 @@ class Serve {
     file: [
       pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname,
       pathname => {
-        if (/\/index.html?$/.test(pathname))
+        if (/^\/index.html?$/.test(pathname))
           return {
             done: true,
             value: indexHTML

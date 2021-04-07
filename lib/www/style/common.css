@@ -13,6 +13,7 @@ html {
   font-size: 30px;
   color: var(--text-color);
   background-color: var(--background-color);
+  font-family: sans-serif;
 }
 
 section {
@@ -59,9 +60,50 @@ input[type=range] {
 #file-uploader:focus {
   outline: solid;
 }
-
-#dark-mode-toggle-wrapper {
+dirent-list {
   position: absolute;
-  right: 5%;
-  top: 5%
+  border-radius: 3px;
+  box-shadow: 0 0 2px var(--text-color);
+  background-color: var(--background-color);
+  z-index: 99;
+  font-size: .45rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+dirent-list > option {
+  font-weight: normal;
+  white-space: nowrap;
+  min-height: 1.2em;
+  padding: .5rem .4rem;
+  cursor: default;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+dirent-list > option > * {
+  display: inline-block;
+  height: 1em;
+}
+
+dirent-list > option::before {
+  width: 1.5em;
+  height: .8rem;
+  display: inline-block;
+  padding: .2rem .25rem 0 0;
+  vertical-align: middle;
+  position: relative;
+  top: -.1rem;
+}
+
+dirent-list > option[type="folder"]::before {
+  content: url("/_lib_/www/icons/default_folder_opened.svg");
+}
+
+dirent-list > option[type="file"]::before {
+  content: url("/_lib_/www/icons/default_file.svg");
+}
+
+dirent-list > option:hover, dirent-list > option.active {
+  background-color: var(--text-color);
+  color: var(--background-color);
 }

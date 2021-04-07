@@ -11,7 +11,11 @@
   "scripts": {
     "serve": "node ./bin/cmd.js"
   },
-  "keywords": ["http-server", "static", "local"],
+  "keywords": [
+    "http-server",
+    "static",
+    "local"
+  ],
   "author": "edfus",
   "license": "ISC",
   "dependencies": {
