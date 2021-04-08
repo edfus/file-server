@@ -6,9 +6,10 @@ import { createServer as http_server } from "http";
 import { createServer as net_server } from "net";
 
 import { App, Serve } from "../file-server.js";
-import { JSONCache, Log, questions, local } from "./helpers.js";
+import { JSONCache, Log, questions, local, __dirname } from "./helpers.js";
 
 import prompts from "prompts";
+import { basename, dirname } from "path";
 const { prompt } = prompts;
 /**
  * 
@@ -18,7 +19,15 @@ const { prompt } = prompts;
 
 (async () => {
   const app = new App();
-  const cache = new JSONCache();
+  /**
+   * command line option
+   */
+  const configpath_cli = extractArg(/--?config/);
+  const cachename = configpath_cli ? basename(configpath_cli) : "requirements.cache";
+  const cachepath = configpath_cli ? dirname(configpath_cli) : __dirname;
+  const cache = new JSONCache(cachepath);
+
+  const foldername_cli = extractArg(/^[^-]/);
 
   /**
    * user input
@@ -26,7 +35,7 @@ const { prompt } = prompts;
   let requirements;
   try {
     requirements = await cache.get(
-      "requirements",
+      cachename,
       () => prompt({ // get password callback
         type: 'password',
         name: 'password',
@@ -39,8 +48,8 @@ const { prompt } = prompts;
 
   let shouldPrompt = true;
 
-  if(process.argv[2]) {
-    const location = process.argv[2];
+  if(foldername_cli) {
+    const location = foldername_cli;
     if(existsSync(location)) {
       shouldPrompt = false;
       if(typeof requirements === "object") {
@@ -49,7 +58,7 @@ const { prompt } = prompts;
         requirements = { location };
       }
     } else {
-      console.error(`${process.argv[2]} DO NOT exist`);
+      console.error(`${foldername_cli} DO NOT exist`);
     }
   }
 
@@ -95,7 +104,7 @@ const { prompt } = prompts;
     };
 
     if(Object.keys(requirements).length > 5)
-      cache.set("requirements", requirements);
+      cache.set(cachename, requirements);
   }
 
   /**
@@ -156,9 +165,7 @@ const { prompt } = prompts;
 
   const port = requirements.port || 0;
   const hostname = requirements.hostname || "localhost";
-  const requestListener = app.callback(
-    `${hostname}${port ? ":".concat(port) : ""}`, protocol
-  );
+  const requestListener = app.callback();
 
   if(protocol === "https:") {
     const keyPromise = fsp.readFile(requirements.key || local("./dev/server.key"));
@@ -246,3 +253,12 @@ const { prompt } = prompts;
     logger.critical("There was an uncaught error\n".concat(err.stack, true));
   });
 })();
+
+function extractArg(matchPattern) {
+  for (let i = 2; i < process.argv.length; i++) {
+    if (matchPattern.test(process.argv[i])) {
+      return process.argv[i + 1];
+    }
+  }
+  return false;
+}

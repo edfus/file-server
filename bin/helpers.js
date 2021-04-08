@@ -10,8 +10,12 @@ const local = path => join(__dirname, path);
 class JSONCache {
   encryptedIdentifier = Buffer.from("---ENCRYPTED---\n");
 
+  constructor (path) {
+    this.path = path;
+  }
+
   set (cachename, obj) {
-    const cache = createWriteStream(local(cachename.concat(".cache")));
+    const cache = createWriteStream(join(this.path, cachename));
   
     if(obj.password) {
       randomBytes(16, (err, iv) => {
@@ -37,14 +41,14 @@ class JSONCache {
   }
 
   has (cachename) {
-    return existsSync(local(cachename.concat(".cache")));
+    return existsSync(join(this.path, cachename));
   }
 
   async get (cachename, passwordCallback) {
     if(!this.has(cachename))
       return false;
 
-    const rawData = await fsp.readFile(local(cachename.concat(".cache")));
+    const rawData = await fsp.readFile(join(this.path, cachename));
     const mightbeId = rawData.slice(0, this.encryptedIdentifier.length);
 
     if (Buffer.compare(mightbeId, this.encryptedIdentifier) === 0) {
