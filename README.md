@@ -12,7 +12,7 @@ This package is developed as an easy and quick mean to share files across my LAN
 
 - User-friendly interactive prompts powered by [prompts](https://github.com/terkelg/prompts#-prompts)
 - Multithreaded download based on [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js)
-- Composing router logic & cascading middlewares in [koa-style](https://koajs.com/)
+- Composing router logic & cascading middlewares in [Koa](https://koajs.com/) style
 - HTTPS & HTTP over the same port
 
 ## CMD Usage
@@ -25,14 +25,40 @@ npx @edfus/file-server
 Alternatively, you can install this package either globally or locally
 ```bash
 npm install @edfus/file-server -g
-serve folder_name # skip the prompts, serve what you want directly using previous config
 ```
 
 ```bash
 npm install @edfus/file-server
 cd node_modules/@edfus/file-server
-# or git clone --depth 1 https://github.com/edfus/file-server && cd file-server && npm install
+```
+
+```bash
+git clone --depth 1 https://github.com/edfus/file-server 
+cd file-server
+npm install
+```
+
+And then run:
+```bash
+# global
+serve 
+# local
 npm run serve
+```
+
+Available command-line options:
+
+- `--config config_path`: The path to your preferred config location for retriving/creating/updating settings.
+- `folder_name`: The first unpaired, non-option command line argument will be treated as the `folder_name`, if exists.
+
+Specifying `folder_name` will skip the prompts, serve what you want directly using previous config (or config you provided via `--config`)
+
+Example:
+```bash
+npx @edfus/file-server /var/www/localhost/ --config /var/www/docker_volume/config 
+npx @edfus/file-server --config ./configs/$(LANG=en_us_88591; date "+%B").cache ./
+
+npm run serve -- --config localconfig
 ```
 
 ## Env Settings
@@ -55,15 +81,17 @@ for (const service of services) app.use(service);
 app.listen(0, "localhost", function () {
   console.info(`File server is running at http://localhost:${this.address().port}`);
 });
+
+app.on("error", console.error);
 ```
 
 This package has two named exports:
 
 ### `App`
 
-A minimal implementation of [Koa](https://koajs.com/).
+Class `App` is a minimal implementation of [Koa](https://koajs.com/).
 
-Following properties are available in ctx for middleware:
+Following properties are available in ctx for middlewares:
 
 ```ts
 /**
@@ -95,7 +123,7 @@ See <https://github.com/edfus/file-server/master/file-server.d.ts> for more deta
 
 ### `Serve`
 
-The core of this package, highly decoupled.
+class `Serve` is the core of this package, highly decoupled.
 
 ```ts
 class Serve {
@@ -148,7 +176,7 @@ class Serve {
 }
 ```
 
-Edit Serve#pathnameRouter to suit your needs:
+Serve#pathnameRouter is where you can customize the routing logic:
 
 ```js
   pathnameRouter = {
@@ -192,3 +220,7 @@ Edit Serve#pathnameRouter to suit your needs:
 ./lib/stream-saver is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
 
 Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for $indexHTML. Delete lines in `Serve#fileResHeadersRouter.CSP` if needed.
+
+App#callback trust `proxy set headers` by default (e.g. X-Forwarded-Host, X-Forwarded-For)
+
+HTTP/2 is not supported.
