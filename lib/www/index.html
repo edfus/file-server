@@ -43,7 +43,8 @@
         <label for="file-uploader">...Or Upload file</label>
         <input id="file-uploader" type="file"/>
         <span>to</span>
-        <input id="upload-target" type="text" placeholder="optional" minlength="1" maxlength="40" size="25" />
+        <input id="upload-target" type="text" placeholder="optional" maxlength="80" size="25" />
+        <dirent-list id="upload-destination-datalist" for="upload-target" folder-only reverse></dirent-list>
         <section style="margin-top: 1rem">
           <div>
             <label for="username" style="display: inline-block; width: 5rem;">Username:</label>
@@ -210,11 +211,33 @@
     }
   }
 
+  function makeInputAdjustable (input) {
+    const initialWidth = input.offsetWidth * 1.5;
+    const initialStyle = input.style.width;
+    const fontSize = parseFloat(getComputedStyle(input).fontSize);
+    const padding = 4;
+
+    input.addEventListener("input", e => {
+      const length = input.value.length + padding;
+      if(length * fontSize > initialWidth) {
+        input.style.width = String(length).concat("ch");
+      } else {
+        input.style.width = initialStyle;
+      }
+    });
+  }
+
   /**
    * download
    */
   const pathInput = document.getElementById("get-file-input");
   const downloadButton = document.getElementById("download-button");
+
+  downloadButton.addEventListener("click", couplingDownload, { passive: true });
+  pathInput.addEventListener("keyup", e => e.key === "Enter" && couplingDownload());
+
+  pathInput.focus();
+  makeInputAdjustable(pathInput);
 
   const direntListId = "get-file-input-datalist";
 
@@ -222,26 +245,6 @@
   pathInput.addEventListener(
     "input", () => couplingSetList(pathInput.value, direntListId)
   );
-
-  const initialWidth = pathInput.offsetWidth * 1.5;
-  const initialStyle = pathInput.style.width;
-  const fontSize = parseFloat(getComputedStyle(pathInput).fontSize);
-  const padding = 4;
-
-  downloadButton.addEventListener("click", couplingDownload, { passive: true });
-  pathInput.addEventListener("keyup", e => e.key === "Enter" && couplingDownload());
-
-  pathInput.addEventListener("input", e => {
-    const length = pathInput.value.length + padding;
-    if(length * fontSize > initialWidth) {
-      pathInput.style.width = String(length).concat("ch");
-    } else {
-      pathInput.style.width = initialStyle;
-    }
-    console.log(length * fontSize, initialWidth)
-  });
-
-  pathInput.focus();
   /**
    * upload
    */
@@ -275,4 +278,11 @@
         ))
     );
   });
+
+  makeInputAdjustable(uploadDestination);
+  uploadDestination.addEventListener("keyup", e => e.key === "Enter" && uploadButton.click());
+  uploadDestination.addEventListener(
+    "input", () => couplingSetList(uploadDestination.value, "upload-destination-datalist")
+  );
+  couplingSetList("/", "upload-destination-datalist")
 </script>

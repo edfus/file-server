@@ -272,11 +272,6 @@ class Serve {
     
     ctx.assert(req.method.toUpperCase() === "PUT", 405, "Expected Method PUT");
     ctx.assert(uploadTarget, 400, "Destination path required.");
-    ctx.assert(
-      normalize(uploadTarget).replace(/[^/\\]/g, "").length <= 1,
-      403,
-      "You DO NOT have the permission to create folders"
-    );
 
     let destination = uploadTarget; // decoded
 
@@ -299,6 +294,12 @@ class Serve {
     const filepath = this.routeThrough(
       destination,
       this.pathnameRouter.fs, this.pathnameRouter.file
+    );
+
+    ctx.assert(
+      existsSync(dirname(filepath)),
+      403,
+      "You DO NOT have the permission to create folders"
     );
 
     if (existsSync(filepath)) {

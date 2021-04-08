@@ -107,3 +107,16 @@ dirent-list > option:hover, dirent-list > option.active {
   background-color: var(--text-color);
   color: var(--background-color);
 }
+
+dirent-list[folder-only] > option[type="file"] {
+  display: none;
+}
+
+dirent-list[reverse] {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+dirent-list[hidden] {
+  display: none !important;
+}
