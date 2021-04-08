@@ -48,13 +48,7 @@ export declare class App {
 
   use (middleware: Middleware): this
 
-  /**
-   * Parameters `host` and `protocol` are NOT in koa!
-   * They are only required for providing a right info in
-   * Context#url & Context#state.uriObject & Context#secure,
-   * omitting them would just be fine otherwise
-   */
-  callback (host?: string, protocol?: string): RequestListener
+  callback (): RequestListener
 
   /**
    * a copypasta from net.d.ts

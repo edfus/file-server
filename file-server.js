@@ -39,9 +39,22 @@ class App extends EventEmitter {
     return this;
   }
 
-  callback (host, protocol) {
+  callback () {
     return async (req, res) => {
-      const uriObject = new URL(req.url, `${protocol}//${req.headers.host || host}`);
+      const proto = req.socket.encrypted ? "https:" : req.headers["x-forwarded-proto"];
+      const protocol = proto ? proto.split(",", 1)[0].trim().replace(/([^:]$)/, "$1:") : "http:";
+
+      let uriObject;
+      try {
+        uriObject = new URL(
+          req.url, 
+          `${protool}//${req.headers["x-forwarded-host"] || req.headers.host}`
+        );
+      } catch (err) {
+        this.emit("error", err);
+        return req.destroy();
+      }
+
       const ctx = {
         ...this.context,
         req, res,
@@ -51,7 +64,7 @@ class App extends EventEmitter {
         },
         url: uriObject.toString(),
         secure: protocol === "https:",
-        ip: req.headers["x-forwarded-for"] || req.socket.remoteAddress
+        ip: req.headers["x-forwarded-for"].split(",", 1)[0].trim() || req.socket.remoteAddress
       }
 
       let index = 0;
