@@ -30,12 +30,55 @@ const argvs = process.argv.slice(2);
   const cache = new JSONCache(cachepath);
 
   const password_cli = extractArg(/^--?p(assw(or)?d)?$/, 1);
-  const noPrompt = extractArg(/^--?n(o[-_]prompt)?$/) !== false;
-  const noValidate = extractArg(/^--?(no[-_]validat(e|ion)|l(oose)?)$/) !== false;
+  const noPrompt_cli = extractArg(/^--?n(o[-_]prompt)?$/) !== false;
+  const noValidate_cli = extractArg(/^--?(no[-_]validat(e|ion)|l(oose)?)$/) !== false;
+
+  const isHelp = extractArg(/^--?h(elp)?$/) !== false;
+  
+  const setErrorExit_cli = extractArg(/^--?(no[-_]fallback|e|set-e)$/) !== false;
+  const onFallback = setErrorExit_cli ? hint => {
+    throw new Error(hint || "An misconfiguration is encountered with --no-fallback set");
+  } : () => void 0;
+  
   const foldername_cli = extractArg(/^[^-]/, 0);
 
-  if(argvs.length)
+  if(isHelp) {
+    return console.info([
+      "Options:",
+      "--config     [config_path]  The path to your preferred config location",
+      "                            for retriving/creating/updating settings.",
+      "--password   [password]     The optional password for encrypting and",
+      "                            decrypting config file.",
+      "Flags:",
+      "--no-prompt     Skip the prompts, use possible or default settings.",
+      "--no-validate   Do not check validity of pathnames.",
+      "--no-fallback   Exits immediately when any misconfiguration is found.",
+      "--help",
+      "Shortcuts:",
+      "<folder_name>   Folder to be served.",
+      "Alias:",
+      "-c: --config [config_path]",
+      "-p: --password [passwd]",
+      "-h: --help",
+      "-n: --no-prompt",
+      "-l, --loose: --no-validate",
+      "-e, --set-e: --no-fallback"
+    ].map(s => /^[A-Z]/.test(s) ? "\n".concat(s) : " ".repeat(4).concat(s)).join("\n"));
+  }
+
+  if(argvs.length) {
     console.info("Unrecognized arguments:", argvs);
+    onFallback();
+  }
+
+  if(password_cli !== false && !password_cli) {
+    onFallback(`Empty password ${password_cli}.`);
+  }
+
+  if(configpath_cli && !existsSync(configpath_cli)) {
+    onFallback(`${configpath_cli} doesn't exist.`);
+  }
+  
   /**
    * user input
    */
@@ -56,9 +99,10 @@ const argvs = process.argv.slice(2);
     );
   } catch (err) {
     console.info("Config file corrupted. ", err);
+    onFallback();
   }
 
-  let shouldPrompt = !noPrompt;
+  let shouldPrompt = !noPrompt_cli;
 
   if(foldername_cli) {
     const location = foldername_cli;
@@ -70,11 +114,11 @@ const argvs = process.argv.slice(2);
         requirements = { location };
       }
     } else {
-      throw new Error(`${foldername_cli} DO NOT exist`);
+      throw new Error(`${foldername_cli} DOES NOT exist`);
     }
   }
 
-  if(noValidate) {
+  if(noValidate_cli) {
     // remove validate
     questions.forEach(q => {
       if(removableValidations.includes(q.name))
@@ -122,6 +166,13 @@ const argvs = process.argv.slice(2);
       ...typeof requirements === "object" ? requirements : {},
       ...await prompt(questions)
     };
+
+    if(requirements.password) {
+      if(requirements.comfirmed_password !== requirements.password) {
+        onFallback("requirements.comfirmed_password !== requirements.password");
+        requirements.password = requirements.comfirmed_password = false;
+      }
+    }
 
     if(password_cli && !requirements.password)
       requirements.password = password_cli;
@@ -179,11 +230,12 @@ const argvs = process.argv.slice(2);
   const servers = {};
   let protocol = requirements.notTLS !== false ? "http:" : "https:";
 
-  if(protocol === "https:" && !requirements.useSelfSignedCert) {
-    if(!requirements.key || !requirements.cert) {
+  if(protocol === "https:") {
+    if(requirements.useSelfSignedCert || !requirements.key || !requirements.cert) {
       if(!["localhost", "127.0.0.1", undefined].includes(requirements.hostname)) {
-        console.error("Self signed certificate is valid only for hostnames ['localhost', '127.0.0.1']");
+        console.error("Self signed certificate is only valid for hostnames ['localhost', '127.0.0.1']");
         protocol = "http:";
+        onFallback();
       }
     }
   }

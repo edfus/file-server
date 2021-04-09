@@ -217,12 +217,13 @@ export const questions = [
   },
   {
     type: prev => prev && "password",
-    name: "_passwd_confirm",
+    name: "comfirmed_password",
     validate (value) {
-      return (
-        (this.initial && value === this.initial)
-        || value === passwd_tmp
-      );
+      if(this.initial && value === this.initial)
+        return true;
+      if(value === passwd_tmp)
+        return true;
+      return "Passwords don't match (Ctrl + C for an abortion)";
     },
     initial (prev) {
       passwd_tmp = prev;

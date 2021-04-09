@@ -48,26 +48,31 @@ npm run serve
 
 Available command-line options:
 
-- `--config config_path`: The path to your preferred config location for retriving/creating/updating settings.
-- `--password passwd`: The optional password for encrypting and decrypting config file. Password set by the authorization prompt takes priority over this.
+- `--config [config_path]`: The path to your preferred config location for retriving/creating/updating settings.
+- `--password [passwd]`: The optional password for encrypting and decrypting config file. Password set by the authorization prompt takes priority over this.
 - `--no-prompt`: Skip the prompts, use possible or default settings.
 - `--no-validate`: Do not check validity of pathnames.
-- `folder_name`: The first unpaired, non-option command line argument will be treated as the `folder_name`, if exists. Specifying `folder_name` will skip the prompts, serve what you want directly using possible or default settings.
+- `--no-fallback`: Exits immediately when any misconfiguration is found.
+- `<folder_name>`: The first unpaired, non-option command line argument will be treated as the `<folder_name>`, if exists. Specifying `<folder_name>` will skip the prompts, serve what you want directly using possible or default settings.
 
 When a encrypted config is encountered, a `To recall your previous configuration, enter the password` prompt will always jump out regardless of the `"will-skip-prompts"` options being set or not. Specify `--password passwd` explicitly in this case.
 
 Examples:
 ```bash
+serve .
+
 npx @edfus/file-server /var/www/localhost/ --config /var/www/docker_volume/config 
 serve --config /var/www/docker_volume/config --password K3qUrFS+h@G --no-prompt
 npm run serve -- --no-prompt
 ```
 
 Alias:
-- `-c`: `--config config_path`
-- `-p`: `--password passwd`
+- `-c`: `--config [config_path]`
+- `-p`: `--password [passwd]`
+- `-h`: `--help`
 - `-n`: `--no-prompt`
 - `-l`, `--loose`: `--no-validate`
+- `-e`, `--set-e`: `--no-fallback`
 
 ## Env Settings
 
