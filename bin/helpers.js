@@ -20,7 +20,7 @@ class JSONCache {
     if(obj.password) {
       randomBytes(16, (err, iv) => {
         if(err) return console.error(err);
-        const key = createHash('sha1').update(obj.password).digest().slice(0, 16);
+        const key = createHash("sha1").update(obj.password).digest().slice(0, 16);
         const cipher = createCipheriv("aes-128-gcm", key, iv);
 
         const body = Buffer.concat([
@@ -62,7 +62,7 @@ class JSONCache {
       if(!password?.length) 
         return false;
 
-      const key = createHash('sha1').update(password).digest().slice(0, 16);
+      const key = createHash("sha1").update(password).digest().slice(0, 16);
       const decipher = createDecipheriv("aes-128-gcm", key, iv).setAuthTag(tag);
 
       const jsonData = Buffer.concat([
@@ -72,7 +72,7 @@ class JSONCache {
 
       return JSON.parse(jsonData);
     } else {
-      return JSON.parse(rawData)
+      return rawData.length ? JSON.parse(rawData) : {};
     }
   }
 }
@@ -119,13 +119,14 @@ class Log {
 
 export { JSONCache, Log, local, __dirname };
 
+export const removableValidations = ["location", "cert", "key"];
 let passwd_tmp;
 export const questions = [
   {
-    type: 'text',
-    name: 'location',
+    type: "text",
+    name: "location",
     initial: "./",
-    message: 'Enter the root folder for serving files',
+    message: "Enter the root folder for serving files",
     validate (path) {
       if(existsSync(path)) {
         return true;
@@ -135,45 +136,45 @@ export const questions = [
     }
   },
   {
-    type: 'text',
-    name: 'hostname',
+    type: "text",
+    name: "hostname",
     initial: "localhost",
-    message: 'Enter the hostname'
+    message: "Enter the hostname"
   },
   {
-    type: 'number',
-    name: 'port',
+    type: "number",
+    name: "port",
     initial: 12345,
     min: 0,
     max: 65565,
-    message: 'Enter the port to be listened'
+    message: "Enter the port to be listened"
   },
   {
-    type: 'text',
-    name: 'logPath',
+    type: "text",
+    name: "logPath",
     initial: "./",
-    message: 'Enter the output folder of logs'
+    message: "Enter the output folder of logs"
   },
   {
-    type: 'toggle',
-    name: 'notTLS',
-    message: 'HTTP or HTTPS?',
+    type: "toggle",
+    name: "notTLS",
+    message: "HTTP or HTTPS?",
     initial: true, // HTTP
-    active: 'HTTP',
-    inactive: 'HTTPS'
+    active: "HTTP",
+    inactive: "HTTPS"
   },
   {
-    type: notTLS => !notTLS && 'toggle',
-    name: 'useSelfSignedCert',
-    message: 'Use localhost certificate? (self signed)',
+    type: notTLS => !notTLS && "toggle",
+    name: "useSelfSignedCert",
+    message: "Use localhost certificate? (self signed)",
     initial: true,
-    active: 'Yes',
-    inactive: 'No'
+    active: "Yes",
+    inactive: "No"
   },
   {
-    type: prev => prev !== true && 'text',
-    name: 'cert',
-    message: 'Enter the certificate path',
+    type: prev => prev !== true && "text",
+    name: "cert",
+    message: "Enter the certificate path",
     validate (path) {
       if(existsSync(path)) {
         return true;
@@ -184,9 +185,9 @@ export const questions = [
     initial: "./server.crt"
   },
   {
-    type: prev => prev !== true && 'text',
-    name: 'key',
-    message: 'Enter the private key path',
+    type: prev => prev !== true && "text",
+    name: "key",
+    message: "Enter the private key path",
     validate (path) {
       if(existsSync(path)) {
         return true;
@@ -197,26 +198,26 @@ export const questions = [
     initial: "./server.key"
   },
   {
-    type: 'toggle',
-    name: 'isAuthEnabled',
-    message: 'Enable authorization?',
+    type: "toggle",
+    name: "isAuthEnabled",
+    message: "Enable authorization?",
     initial: true,
-    active: 'Yes',
-    inactive: 'No'
+    active: "Yes",
+    inactive: "No"
   },
   {
-    type: prev => prev && 'text',
-    name: 'username',
-    message: 'Username'
+    type: prev => prev && "text",
+    name: "username",
+    message: "Username"
   },
   {
-    type: prev => prev && 'password',
-    name: 'password',
-    message: 'Password'
+    type: prev => prev && "password",
+    name: "password",
+    message: "Password"
   },
   {
-    type: prev => prev && 'password',
-    name: '_passwd_confirm',
+    type: prev => prev && "password",
+    name: "_passwd_confirm",
     validate (value) {
       return (
         (this.initial && value === this.initial)
@@ -227,17 +228,17 @@ export const questions = [
       passwd_tmp = prev;
       return "";
     },
-    message: 'Confirm password'
+    message: "Confirm password"
   },
   {
-    type: prev => prev !== false && 'multiselect',
-    name: 'auth',
-    message: 'Restricted realms where login is required',
+    type: prev => prev !== false && "multiselect",
+    name: "auth",
+    message: "Restricted realms where login is required",
     hint: true,
     choices: [
-      { title: 'Upload files', value: '/upload' },
-      { title: 'Browse files in folder', value: '/api' },
-      { title: 'All', value: '.*' }
+      { title: "Upload files", value: "/upload" },
+      { title: "Browse files in folder", value: "/api" },
+      { title: "All", value: ".*" }
     ]
   }
 ];

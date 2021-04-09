@@ -6,7 +6,7 @@ import { createServer as http_server } from "http";
 import { createServer as net_server } from "net";
 
 import { App, Serve } from "../file-server.js";
-import { JSONCache, Log, questions, local, __dirname } from "./helpers.js";
+import { JSONCache, Log, questions, local, __dirname, removableValidations } from "./helpers.js";
 
 import prompts from "prompts";
 import { basename, dirname } from "path";
@@ -24,15 +24,18 @@ const argvs = process.argv.slice(2);
   /**
    * command line options
    */
-  const configpath_cli = extractArg(/--?c(onfig)?/, 1);
+  const configpath_cli = extractArg(/^--?c(onfig)?$/, 1);
   const cachename = configpath_cli ? basename(configpath_cli) : "requirements.cache";
   const cachepath = configpath_cli ? dirname(configpath_cli) : __dirname;
   const cache = new JSONCache(cachepath);
 
-  const password_cli = extractArg(/--?p(assw(or)?d)?/, 1);
-  const noPrompt = extractArg(/--?n(o[-_]prompt)?/) !== false;
+  const password_cli = extractArg(/^--?p(assw(or)?d)?$/, 1);
+  const noPrompt = extractArg(/^--?n(o[-_]prompt)?$/) !== false;
+  const noValidate = extractArg(/^--?(no[-_]validat(e|ion)|l(oose)?)$/) !== false;
   const foldername_cli = extractArg(/^[^-]/, 0);
 
+  if(argvs.length)
+    console.info("Unrecognized arguments:", argvs);
   /**
    * user input
    */
@@ -52,7 +55,7 @@ const argvs = process.argv.slice(2);
       }
     );
   } catch (err) {
-    console.info("Cache file corrupted. ", err);
+    console.info("Config file corrupted. ", err);
   }
 
   let shouldPrompt = !noPrompt;
@@ -69,6 +72,14 @@ const argvs = process.argv.slice(2);
     } else {
       throw new Error(`${foldername_cli} DO NOT exist`);
     }
+  }
+
+  if(noValidate) {
+    // remove validate
+    questions.forEach(q => {
+      if(removableValidations.includes(q.name))
+        return delete q.validate;
+    });
   }
 
   if(typeof requirements === "object") {
@@ -168,7 +179,7 @@ const argvs = process.argv.slice(2);
   const servers = {};
   let protocol = requirements.notTLS !== false ? "http:" : "https:";
 
-  if(!requirements.useSelfSignedCert) {
+  if(protocol === "https:" && !requirements.useSelfSignedCert) {
     if(!requirements.key || !requirements.cert) {
       if(!["localhost", "127.0.0.1", undefined].includes(requirements.hostname)) {
         console.error("Self signed certificate is valid only for hostnames ['localhost', '127.0.0.1']");
