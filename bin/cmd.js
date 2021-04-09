@@ -11,6 +11,8 @@ import { JSONCache, Log, questions, local, __dirname } from "./helpers.js";
 import prompts from "prompts";
 import { basename, dirname } from "path";
 const { prompt } = prompts;
+
+const argvs = process.argv.slice(2);
 /**
  * 
  * main
@@ -20,14 +22,16 @@ const { prompt } = prompts;
 (async () => {
   const app = new App();
   /**
-   * command line option
+   * command line options
    */
-  const configpath_cli = extractArg(/--?config/);
+  const configpath_cli = extractArg(/--?c(onfig)?/, 1);
   const cachename = configpath_cli ? basename(configpath_cli) : "requirements.cache";
   const cachepath = configpath_cli ? dirname(configpath_cli) : __dirname;
   const cache = new JSONCache(cachepath);
 
-  const foldername_cli = extractArg(/^[^-]/);
+  const password_cli = extractArg(/--?p(assw(or)?d)?/, 1);
+  const noPrompt = extractArg(/--?n(o[-_]prompt)?/) !== false;
+  const foldername_cli = extractArg(/^[^-]/, 0);
 
   /**
    * user input
@@ -36,17 +40,22 @@ const { prompt } = prompts;
   try {
     requirements = await cache.get(
       cachename,
-      () => prompt({ // get password callback
-        type: 'password',
-        name: 'password',
-        message: 'To recall your previous configuration, enter the password'
-      }).then(({ password }) => password)
+      // get password callback
+      () => {
+        if(password_cli !== false)
+          return password_cli;
+        return prompt({
+          type: 'password',
+          name: 'password',
+          message: 'To recall your previous configuration, enter the password'
+        }).then(({ password }) => password)
+      }
     );
   } catch (err) {
     console.info("Cache file corrupted. ", err);
   }
 
-  let shouldPrompt = true;
+  let shouldPrompt = !noPrompt;
 
   if(foldername_cli) {
     const location = foldername_cli;
@@ -58,7 +67,7 @@ const { prompt } = prompts;
         requirements = { location };
       }
     } else {
-      console.error(`${foldername_cli} DO NOT exist`);
+      throw new Error(`${foldername_cli} DO NOT exist`);
     }
   }
 
@@ -103,9 +112,14 @@ const { prompt } = prompts;
       ...await prompt(questions)
     };
 
-    if(Object.keys(requirements).length > 5)
+    if(password_cli && !requirements.password)
+      requirements.password = password_cli;
+
+    if(Object.keys(requirements).length > 4)
       cache.set(cachename, requirements);
   }
+
+  requirements = typeof requirements === "object" ? requirements : {};
 
   /**
    * add middlewares
@@ -254,10 +268,11 @@ const { prompt } = prompts;
   });
 })();
 
-function extractArg(matchPattern) {
-  for (let i = 2; i < process.argv.length; i++) {
-    if (matchPattern.test(process.argv[i])) {
-      return process.argv[i + 1];
+function extractArg(matchPattern, offset = 0) {
+  for (let i = 0; i < argvs.length; i++) {
+    if (matchPattern.test(argvs[i])) {
+      const matched = argvs.splice(i, offset + 1);
+      return matched.length <= 2 ? matched[offset] : matched.slice(1);
     }
   }
   return false;
