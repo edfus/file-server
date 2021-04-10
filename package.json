@@ -1,6 +1,6 @@
 {
   "name": "@edfus/file-server",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "A LAN server with auth, upload and multithreaded download",
   "type": "module",
   "types": "file-server.d.ts",

@@ -76,7 +76,8 @@ const argvs = process.argv.slice(2);
   }
 
   if(configpath_cli && !existsSync(configpath_cli)) {
-    onFallback(`${configpath_cli} doesn't exist.`);
+    console.info(`\x1b[1m\x1b[30m${configpath_cli} doesn't exist, switching to create mode...\x1b[0m`);
+    onFallback();
   }
   
   /**
@@ -199,7 +200,7 @@ const argvs = process.argv.slice(2);
       (ctx, next) => {
         const { req, res, state } = ctx;
 
-        if (authRules.some(rule => rule.test(state.pathname))) {
+        if (authRules.some(rule => rule.test(state.uriObject.search))) {
           const authorization = req.headers["authorization"];
 
           if (!authorization) {
@@ -211,7 +212,8 @@ const argvs = process.argv.slice(2);
 
           if (authorization !== basicAuth) {
             return res.writeHead(401, {
-              "WWW-Authenticate": `Basic realm="restricted"`
+              // Disable browser login prompt
+              // "WWW-Authenticate": `Basic realm="restricted"`
             }).end("Wrong username or password");
           }
         }

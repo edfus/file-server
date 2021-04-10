@@ -213,7 +213,11 @@ export const questions = [
   {
     type: prev => prev && "password",
     name: "password",
-    message: "Password"
+    message: "Password",
+    validate: function stashPassword (passwd) {
+      passwd_tmp = passwd;
+      return true;
+    }
   },
   {
     type: prev => prev && "password",
@@ -225,10 +229,6 @@ export const questions = [
         return true;
       return "Passwords don't match (Ctrl + C for an abortion)";
     },
-    initial (prev) {
-      passwd_tmp = prev;
-      return "";
-    },
     message: "Confirm password"
   },
   {
@@ -237,8 +237,8 @@ export const questions = [
     message: "Restricted realms where login is required",
     hint: true,
     choices: [
-      { title: "Upload files", value: "/upload" },
-      { title: "Browse files in folder", value: "/api" },
+      { title: "Upload files", value: "action=upload" },
+      { title: "Browse files in folder", value: "action=(list|get-list)" },
       { title: "All", value: ".*" }
     ]
   }
