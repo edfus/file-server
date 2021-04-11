@@ -1,16 +1,11 @@
 import { stat, createWriteStream, createReadStream, readdir, existsSync } from "fs";
 import { extname, basename, join, normalize, dirname } from "path";
 import { pipeline } from "stream";
-import mime from "./env/mime.js";
-import pathMap from "./env/path-map.js";
-import { fileURLToPath } from "url";
 import EventEmitter from "events";
 import { createServer } from "http";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const local = (...paths) => join(__dirname, ...paths.map(p => normalize(p)));
-
-const indexHTML = local("./lib/www/index.html");
+import mime from "./env/mime.js";
+import pathMap from "./env/path-map.js";
 
 class App extends EventEmitter {
   middlewares = [];
@@ -105,7 +100,6 @@ class App extends EventEmitter {
   }
 }
 
-const nonce = "nonce-dfbar12m3";
 class Serve {
   implementedMethods = ["GET", "PUT", "HEAD"];
   listCache = new Map();
@@ -122,23 +116,7 @@ class Serve {
       pathname => pathname.replace(/<|>|:|"|\||\?|\*/g, "-")
     ],
     file: [
-      pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname,
-      pathname => {
-        if (/^\/index.html?$/.test(pathname))
-          return {
-            done: true,
-            value: indexHTML
-          };
-        return pathname;
-      },
-      pathname => {
-        if (/^\/_lib_\//.test(pathname))
-          return {
-            done: true,
-            value: local("./lib/", pathname.replace(/^\/_lib_\//, ""))
-          };
-        return { done: false, value: pathname };
-      }
+
     ],
     dir: [
       pathname => pathname.endsWith("/") ? pathname : pathname.concat("/")
@@ -150,14 +128,6 @@ class Serve {
       extension => "no-cache"
     ],
     CSP: [
-      filepath => {
-        if(filepath === indexHTML)
-          return {
-            done: true,
-            value: `object-src 'none'; script-src 'self' '${nonce}' 'unsafe-inline'; require-trusted-types-for 'script';`
-          }
-        return filepath;
-      },
       filepath => ""
     ]
   }

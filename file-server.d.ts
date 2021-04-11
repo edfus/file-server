@@ -6,7 +6,7 @@ import {
   IncomingMessage,
   ServerResponse
 } from "http";
-
+import { EventEmitter } from "events";
 import { ListenOptions } from "net";
 
 import { Stats } from "fs";
@@ -38,7 +38,7 @@ type Context = BasicContext & {
 type Next = () => void;
 type Middleware = ((ctx: Context, next: Next) => Promise<void>)
 
-export declare class App {
+export declare class App extends EventEmitter {
   constructor();
   middlewares: Array<Middleware>;
   context: BasicContext;

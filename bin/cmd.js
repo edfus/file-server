@@ -4,12 +4,12 @@ import { existsSync, promises as fsp } from "fs";
 import { createServer as https_server } from "https";
 import { createServer as http_server } from "http";
 import { createServer as net_server } from "net";
+import { basename, dirname, normalize, join } from "path";
 
 import { App, Serve } from "../file-server.js";
 import { JSONCache, Log, questions, local, __dirname, removableValidations } from "./helpers.js";
 
 import prompts from "prompts";
-import { basename, dirname } from "path";
 const { prompt } = prompts;
 
 const argvs = process.argv.slice(2);
@@ -223,8 +223,48 @@ const argvs = process.argv.slice(2);
     );
   }
 
-  const services = new Serve().mount(requirements.location);
-  for (const service of services) app.use(service);
+  const services = new Serve();
+
+  const hash = "sha256-2LuvFWZpIobHyC7K3oXYCaPsLdxdOBQ39DQ61SP6biY=";
+  const base  = join(__dirname, "..");
+  const indexHTML = join(base, "./lib/www/index.html");
+  const normalizedLocal = (...paths) => join(base, ...paths.map(p => normalize(p)));
+
+  services.pathnameRouter.file.push(
+    pathname => {
+      if (/^\/(index.html?)?$/.test(pathname))
+        return {
+          done: true,
+          value: indexHTML
+        };
+      return pathname;
+    }
+  );
+
+  services.fileResHeadersRouter.CSP.unshift(
+    filepath => {
+      if(filepath === indexHTML)
+        return {
+          done: true,
+          value: `object-src 'none'; script-src 'self' '${hash}' 'unsafe-inline'; require-trusted-types-for 'script';`
+        }
+      return filepath;
+    }
+  );
+
+  services.pathnameRouter.file.push(
+    pathname => {
+      if (/^\/_lib_\//.test(pathname))
+        return {
+          done: true,
+          value: normalizedLocal("./lib/", pathname.replace(/^\/_lib_\//, ""))
+        };
+      return { done: false, value: pathname };
+    }
+  );
+
+  for (const service of services.mount(requirements.location))
+    app.use(service);
 
   /**
    * create servers
