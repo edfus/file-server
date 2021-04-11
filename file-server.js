@@ -35,6 +35,14 @@ class App extends EventEmitter {
   }
 
   callback () {
+    if (!this.listenerCount('error')) {
+      console.info(
+        "\x1b[1m\x1b[30mNo listener attached for 'error' event,",
+        "forwarding all errors to console...\x1b[0m"
+      );
+      this.on('error', console.error);
+    }
+
     return async (req, res) => {
       const proto = req.socket.encrypted ? "https:" : proxyHeader(req, "X-Forwarded-Host") || "http:";
       const protocol = proto.replace(/([^:]$)/, "$1:");
@@ -116,7 +124,7 @@ class Serve {
       pathname => pathname.replace(/<|>|:|"|\||\?|\*/g, "-")
     ],
     file: [
-
+      pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname
     ],
     dir: [
       pathname => pathname.endsWith("/") ? pathname : pathname.concat("/")
@@ -158,20 +166,30 @@ class Serve {
         }
         return next();
       },
-      async (ctx, next) => {
-        try {
-          await this.serveFile(ctx);
-        } catch (err) {
-          switch(err.status) {
-            case 404: return ctx.res.writeHead(404).end("404 NOT FOUND");
-            default: throw err;
-          }
-        }
-      }
+      this.serveFile
     ];
   }
 
-  async getList(ctx) {
+  getList = (ctx, next) => {
+    return this._getList(ctx, next);
+  }
+
+  uploadFile = (ctx, next) => {
+    return this._uploadFile(ctx, next);
+  }
+
+  serveFile = async (ctx, next) => {
+    try {
+      await this._serveFile(ctx, next);
+    } catch (err) {
+      switch(err.status) {
+        case 404: return ctx.res.writeHead(404).end("404 NOT FOUND");
+        default: throw err;
+      }
+    }
+  }
+
+  async _getList(ctx) {
     const { req, res, state } = ctx;
     const url = state.uriObject;
 
@@ -247,7 +265,7 @@ class Serve {
     });
   }
 
-  async uploadFile(ctx) {
+  async _uploadFile(ctx) {
     const { req, res, state } = ctx;
     const url = state.uriObject;
 
@@ -344,7 +362,7 @@ class Serve {
     }
   }
 
-  async serveFile(ctx) {
+  async _serveFile(ctx) {
     const { req, res, state } = ctx;
     const url = state.uriObject;
 

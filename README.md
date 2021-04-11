@@ -80,22 +80,47 @@ See files in folder [./env/](https://github.com/edfus/file-server/tree/master/en
 
 ## API
 
-A quick start snippet:
+Some quick start snippets:
 
 ```js
-
 import { App, Serve } from "@edfus/file-server";
 
 const app = new App();
 const services = new Serve().mount("./");
-for (const service of services) app.use(service);
+
+for (const service of services)
+  app.use(service);
 
 // simply sugar for http.createServer(app.callback()).listen();
 app.listen(0, "localhost", function () {
   console.info(`File server is running at http://localhost:${this.address().port}`);
 });
+```
 
-app.on("error", console.error);
+```js
+import { App, Serve } from "@edfus/file-server";
+
+const app = new App();
+
+app.prepend(
+  async (ctx, next) => {
+    await next();
+    
+    console.info(
+      new Date().toLocaleString(),
+      ctx.ip,
+      ctx.req.method,
+      ctx.url,
+      ctx.res.statusCode
+    )
+  }
+);
+
+app.use(new Serve().mount("./doc").serveFile).listen(
+  8080, "localhost", function () {
+    console.info(`Server is running at http://localhost:${this.address().port}`);
+  }
+);
 ```
 
 This package has two named exports:
@@ -113,9 +138,9 @@ Following properties are available in ctx for middlewares:
  */
 type BasicContext = {
   app: App,
-  /* parameter `properties` not supported */
+  /* parameter `properties` is not supported */
   throw (status?: number, message?: string): void;
-  /* parameter `properties` not supported */
+  /* parameter `properties` is not supported */
   assert (shouldBeTruthy: any, status?: number, message?: string): void;
 }
 
@@ -145,9 +170,8 @@ class Serve {
 
   /**
    * sugar for
-   * MUST this.implementedMethods.includes(ctx.req.method)
+   * this.implementedMethods.includes(ctx.req.method)
    * 
-   * ROUTER
    * if (ctx.state.pathname === "/api") {
    *   switch (ctx.state.uriObject.searchParams.get("action")) {
    *     case "list":
@@ -156,19 +180,28 @@ class Serve {
    *   }
    * }
    * 
-   * ROUTER
-   * this.serveFile(ctx);
+   * this.serveFile
    */
   [Symbol.iterator] (): IterableIterator<Middleware>;
 
+  _getList (ctx: Context): Promise<void>;
+  _uploadFile (ctx: Context): Promise<void>;
+  _serveFile (ctx: Context): Promise<void>;
+
   /**
-   * will send stringified JSON {
-   *  { type: "file", value: "xxx" },
-   *  { type: "folder", value: "xxx" }
-   * }
+   * sugar for _getList with correct `this` reference
    */
   getList (ctx: Context): Promise<void>;
+
+  /**
+   * sugar for _uploadFile with correct `this` reference
+   */
   uploadFile (ctx: Context): Promise<void>;
+
+  /**
+   * _serveFile with correct `this` reference
+   * will silence errors with status 404
+   */
   serveFile (ctx: Context): Promise<void>;
 
   /**
@@ -204,23 +237,7 @@ Serve#pathnameRouter is where you can customize the routing logic:
       pathname => pathname.replace(/<|>|:|"|\||\?|\*/g, "-")
     ],
     file: [
-      pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname,
-      pathname => {
-        if (/\/index.html?$/.test(pathname))
-          return {
-            done: true,
-            value: indexHTML
-          };
-        return pathname;
-      },
-      pathname => {
-        if (/^\/_lib_\//.test(pathname))
-          return {
-            done: true,
-            value: local("./lib/", pathname.replace(/^\/_lib_\//, ""))
-          };
-        return { done: false, value: pathname };
-      }
+      pathname => pathname.endsWith("/") ? pathname.concat("index.html") : pathname
     ],
     dir: [
       pathname => pathname.endsWith("/") ? pathname : pathname.concat("/")
@@ -232,7 +249,7 @@ Serve#pathnameRouter is where you can customize the routing logic:
 
 ./lib/stream-saver is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
 
-Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for $indexHTML. Delete lines in `Serve#fileResHeadersRouter.CSP` if needed.
+Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for $indexHTML. Delete lines in `Serve#fileResHeadersRouter.CSP` in `./bin/cmd.js` if needed.
 
 App#callback trust `proxy set headers` by default (e.g. X-Forwarded-Host, X-Forwarded-For)
 

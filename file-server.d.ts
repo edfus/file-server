@@ -35,7 +35,7 @@ type Context = BasicContext & {
   ip: string
 }
 
-type Next = () => void;
+type Next = () => Promise<void>;
 type Middleware = ((ctx: Context, next: Next) => Promise<void>)
 
 export declare class App extends EventEmitter {
@@ -80,12 +80,28 @@ export declare class Serve {
    *   }
    * }
    * 
-   * this.serveFile(ctx);
+   * this.serveFile
    */
   [Symbol.iterator] (): IterableIterator<Middleware>;
 
+  _getList (ctx: Context): Promise<void>;
+  _uploadFile (ctx: Context): Promise<void>;
+  _serveFile (ctx: Context): Promise<void>;
+
+  /**
+   * sugar for _getList with correct `this` reference
+   */
   getList (ctx: Context): Promise<void>;
+  
+  /**
+   * sugar for _uploadFile with correct `this` reference
+   */
   uploadFile (ctx: Context): Promise<void>;
+
+  /**
+   * _serveFile with correct `this` reference
+   * will silence errors with status 404
+   */
   serveFile (ctx: Context): Promise<void>;
 
   /**
