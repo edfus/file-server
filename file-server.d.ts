@@ -1,6 +1,6 @@
 /// <reference types="node" />
 
-import { 
+import {
   RequestListener,
   Server,
   IncomingMessage,
@@ -15,28 +15,28 @@ import { Stats } from "fs";
  * the prototype from which ctx is created.
  * You may add additional properties to ctx by editing app.context
  */
-type BasicContext = {
-  app: App,
+interface BasicContext {
+  app: App;
   /* parameter `properties` not supported */
-  throw (status?: number, message?: string): void;
+  throw(status?: number, message?: string): void;
   /* parameter `properties` not supported */
-  assert (shouldBeTruthy: any, status?: number, message?: string): void;
+  assert(shouldBeTruthy: any, status?: number, message?: string): void;
 }
 
-type Context = BasicContext & {
-  req: IncomingMessage, 
-  res: ServerResponse,
+interface Context extends BasicContext {
+  req: IncomingMessage;
+  res: ServerResponse;
   state: {
-    pathname: string,
-    uriObject: URL
-  },
-  url: string,
-  secure: boolean,
-  ip: string
+    pathname: string;
+    uriObject: URL;
+  };
+  url: string;
+  secure: boolean;
+  ip: string;
 }
 
 type Next = () => Promise<void>;
-type Middleware = ((ctx: Context, next: Next) => Promise<void>)
+type Middleware = ((ctx: Context, next: Next) => Promise<void>);
 
 export declare class App extends EventEmitter {
   constructor();
@@ -44,11 +44,11 @@ export declare class App extends EventEmitter {
   context: BasicContext;
 
   /* NOT in koa! */
-  prepend (middleware: Middleware): this
+  prepend(middleware: Middleware): this;
 
-  use (middleware: Middleware): this
+  use(middleware: Middleware): this;
 
-  callback (): RequestListener
+  callback(): RequestListener;
 
   /**
    * a copypasta from net.d.ts
@@ -63,6 +63,12 @@ export declare class App extends EventEmitter {
   listen(handle: any, backlog?: number, listeningListener?: () => void): Server;
   listen(handle: any, listeningListener?: () => void): Server;
 }
+
+type SubRouter<T> = Array<((input: T) => T)>;
+
+type Router<T> = {
+  [subrouter: string]: SubRouter<T>;
+};
 
 export declare class Serve {
   constructor();
@@ -82,27 +88,27 @@ export declare class Serve {
    * 
    * this.serveFile
    */
-  [Symbol.iterator] (): IterableIterator<Middleware>;
+  [Symbol.iterator](): IterableIterator<Middleware>;
 
-  _getList (ctx: Context): Promise<void>;
-  _uploadFile (ctx: Context): Promise<void>;
-  _serveFile (ctx: Context): Promise<void>;
+  _getList(ctx: Context): Promise<void>;
+  _uploadFile(ctx: Context): Promise<void>;
+  _serveFile(ctx: Context): Promise<void>;
 
   /**
    * sugar for _getList with correct `this` reference
    */
-  getList (ctx: Context): Promise<void>;
-  
+  getList(ctx: Context): Promise<void>;
+
   /**
    * sugar for _uploadFile with correct `this` reference
    */
-  uploadFile (ctx: Context): Promise<void>;
+  uploadFile(ctx: Context): Promise<void>;
 
   /**
-   * _serveFile with correct `this` reference
-   * will silence errors with status 404
+   * _serveFile with correct `this` reference.
+   * Will silence errors with status 404
    */
-  serveFile (ctx: Context): Promise<void>;
+  serveFile(ctx: Context): Promise<void>;
 
   /**
    * sugar for
@@ -110,13 +116,13 @@ export declare class Serve {
    * 
    * this.pathnameRouter.file.push(pathname => join(directory, normalize(pathname)));
    */
-  mount(directory: string): this
+  mount(directory: string): this;
 
-  pathnameRouter: object;
-  fileResHeadersRouter: object;
-  routeThrough<T>(input: T, ...routers: Array<((input: T) => T)>): T;
+  pathnameRouter: Router<string>;
+  fileResHeadersRouter: Router<string>;
+  routeThrough<T>(input: T, ...routers: SubRouter<T>): T;
 
-  etag (stats: Stats): string;
+  etag(stats: Stats): string;
   listCache: Map<string, object>;
   mimeCache: Map<string, string>;
 }

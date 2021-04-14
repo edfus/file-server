@@ -1,10 +1,15 @@
-# file-server
+# File-server
 
-**A LAN server with auth, upload and multithreaded download**
+[![npm](https://img.shields.io/npm/v/@edfus/file-server?logo=npm)](https://www.npmjs.com/package/@edfus/file-server)
+[![install size](https://packagephobia.com/badge?p=@edfus/file-server)](https://packagephobia.com/result?p=@edfus/file-server)
+[![dependencies Status](https://status.david-dm.org/gh/edfus/file-server.svg)](https://david-dm.org/edfus/file-server)
 
----
+
+A LAN server with auth, upload and multithreaded download
 
 <img src="https://raw.github.com/edfus/file-server/master/img/terminal.gif">
+
+---
 
 This package is developed as an easy and quick mean to share files across my LAN with some more abilities like authorization / client upload / client range request.
 
@@ -112,16 +117,18 @@ app.prepend(
       ctx.req.method,
       ctx.url,
       ctx.res.statusCode
-    )
+    );
   }
 );
 
 app.use(new Serve().mount("./doc").serveFile).listen(
   8080, "localhost", function () {
-    console.info(`Server is running at http://localhost:${this.address().port}`);
+    console.info(`File server is running at http://localhost:${this.address().port}`);
   }
 );
 ```
+
+---
 
 This package has two named exports:
 
@@ -133,35 +140,35 @@ Following properties are available in ctx for middlewares:
 
 ```ts
 /**
- * The prototype from which ctx is created.
- * You may add additional properties to ctx by editing App#context
+ * the prototype from which ctx is created.
+ * You may add additional properties to ctx by editing app.context
  */
-type BasicContext = {
-  app: App,
-  /* parameter `properties` is not supported */
-  throw (status?: number, message?: string): void;
-  /* parameter `properties` is not supported */
-  assert (shouldBeTruthy: any, status?: number, message?: string): void;
+interface BasicContext {
+  app: App;
+  /* parameter `properties` not supported */
+  throw(status?: number, message?: string): void;
+  /* parameter `properties` not supported */
+  assert(shouldBeTruthy: any, status?: number, message?: string): void;
 }
 
-type Context = BasicContext & {
-  req: IncomingMessage, 
-  res: ServerResponse,
+interface Context extends BasicContext {
+  req: IncomingMessage;
+  res: ServerResponse;
   state: {
-    pathname: string,
-    uriObject: URL
-  },
-  url: string,
-  secure: boolean,
-  ip: string
+    pathname: string;
+    uriObject: URL;
+  };
+  url: string;
+  secure: boolean;
+  ip: string;
 }
 ```
 
-See <https://github.com/edfus/file-server/master/file-server.d.ts> for more details.
+See <https://github.com/edfus/file-server/blob/master/file-server.d.ts> for more details.
 
 ### `Serve`
 
-class `Serve` is the core of this package, highly decoupled.
+Class `Serve` is the core of this package, highly decoupled.
 
 ```ts
 class Serve {
@@ -182,27 +189,27 @@ class Serve {
    * 
    * this.serveFile
    */
-  [Symbol.iterator] (): IterableIterator<Middleware>;
+  [Symbol.iterator](): IterableIterator<Middleware>;
 
-  _getList (ctx: Context): Promise<void>;
-  _uploadFile (ctx: Context): Promise<void>;
-  _serveFile (ctx: Context): Promise<void>;
+  _getList(ctx: Context): Promise<void>;
+  _uploadFile(ctx: Context): Promise<void>;
+  _serveFile(ctx: Context): Promise<void>;
 
   /**
    * sugar for _getList with correct `this` reference
    */
-  getList (ctx: Context): Promise<void>;
+  getList(ctx: Context): Promise<void>;
 
   /**
    * sugar for _uploadFile with correct `this` reference
    */
-  uploadFile (ctx: Context): Promise<void>;
+  uploadFile(ctx: Context): Promise<void>;
 
   /**
-   * _serveFile with correct `this` reference
-   * will silence errors with status 404
+   * _serveFile with correct `this` reference.
+   * Will silence errors with status 404
    */
-  serveFile (ctx: Context): Promise<void>;
+  serveFile(ctx: Context): Promise<void>;
 
   /**
    * sugar for
@@ -210,19 +217,19 @@ class Serve {
    * 
    * this.pathnameRouter.file.push(pathname => join(directory, normalize(pathname)));
    */
-  mount(directory: string): this
+  mount(directory: string): this;
 
-  pathnameRouter: object;
-  fileResHeadersRouter: object;
-  routeThrough<T>(input: T, ...routers: Array<((input: T) => T)>): T;
+  pathnameRouter: Router<string>;
+  fileResHeadersRouter: Router<string>;
+  routeThrough<T>(input: T, ...routers: SubRouter<T>): T;
 
-  etag (stats: Stats): string;
+  etag(stats: Stats): string;
   listCache: Map<string, object>;
   mimeCache: Map<string, string>;
 }
 ```
 
-Serve#pathnameRouter is where you can customize the routing logic:
+Serve#pathnameRouter is where you can customize routing logic. By default, following actions are used.
 
 ```js
   pathnameRouter = {
@@ -247,9 +254,9 @@ Serve#pathnameRouter is where you can customize the routing logic:
 
 ## Notes
 
-./lib/stream-saver is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
+[./lib/stream-saver](https://github.com/edfus/file-server/tree/master/lib/stream-saver) is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
 
-Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for $indexHTML. Delete lines in `Serve#fileResHeadersRouter.CSP` in `./bin/cmd.js` if needed.
+Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for `$indexHTML`. Delete lines in `Serve#fileResHeadersRouter.CSP` in `./bin/cmd.js` if needed.
 
 App#callback trust `proxy set headers` by default (e.g. X-Forwarded-Host, X-Forwarded-For)
 
