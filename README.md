@@ -51,6 +51,8 @@ serve
 npm run serve
 ```
 
+A default HTML main page will be used unless file `index.html` exists in the folder to be served.
+
 Available command-line options:
 
 - `--config [config_path]`: The path to your preferred config location for retriving/creating/updating settings.

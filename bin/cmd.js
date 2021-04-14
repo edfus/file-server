@@ -228,46 +228,57 @@ const argvs = process.argv.slice(2);
 
   const services = new Serve();
 
-  const hash = "sha256-2LuvFWZpIobHyC7K3oXYCaPsLdxdOBQ39DQ61SP6biY=";
-  const base  = join(__dirname, "..");
-  const indexHTML = join(base, "./lib/www/index.html");
-  const normalizedLocal = (...paths) => join(base, ...paths.map(p => normalize(p)));
+  const possibleIndexFiles = ["index.html"];
+  if(possibleIndexFiles.some(f => existsSync(join(requirements.location, f)))) {
+    ; // do nothing for now
+  } else {
+    const hash = "sha256-2LuvFWZpIobHyC7K3oXYCaPsLdxdOBQ39DQ61SP6biY=";
+    const base  = join(__dirname, "..");
+    const indexHTML = join(base, "./lib/www/index.html");
+    const normalizedLocal = (...paths) => join(base, ...paths.map(p => normalize(p)));
 
-  services.pathnameRouter.file.push(
-    pathname => {
-      if (/^\/(index.html?)?$/.test(pathname))
-        return {
-          done: true,
-          value: indexHTML
-        };
-      return pathname;
-    }
-  );
+    services.pathnameRouter.file.push(
+      pathname => {
+        if (/^\/(index.html?)?$/.test(pathname))
+          return {
+            done: true,
+            value: indexHTML
+          };
+        return pathname;
+      }
+    );
 
-  services.fileResHeadersRouter.CSP.unshift(
-    filepath => {
-      if(filepath === indexHTML)
-        return {
-          done: true,
-          value: `object-src 'none'; script-src 'self' '${hash}' 'unsafe-inline'; require-trusted-types-for 'script';`
-        }
-      return filepath;
-    }
-  );
+    services.fileResHeadersRouter.CSP.unshift(
+      filepath => {
+        if(filepath === indexHTML)
+          return {
+            done: true,
+            value: `object-src 'none'; script-src 'self' '${hash}' 'unsafe-inline'; require-trusted-types-for 'script';`
+          }
+        return filepath;
+      }
+    );
 
-  services.pathnameRouter.file.push(
-    pathname => {
-      if (/^\/_lib_\//.test(pathname))
-        return {
-          done: true,
-          value: normalizedLocal("./lib/", pathname.replace(/^\/_lib_\//, ""))
-        };
-      return { done: false, value: pathname };
-    }
-  );
+    services.pathnameRouter.file.push(
+      pathname => {
+        if (/^\/_lib_\//.test(pathname))
+          return {
+            done: true,
+            value: normalizedLocal("./lib/", pathname.replace(/^\/_lib_\//, ""))
+          };
+        return { done: false, value: pathname };
+      }
+    );
+  }
 
   for (const service of services.mount(requirements.location))
     app.use(service);
+
+  /**
+   * hacky
+   */
+
+  app.once("error", () => 0);
 
   /**
    * create servers
@@ -331,7 +342,7 @@ const argvs = process.argv.slice(2);
   /**
    * log & process
    */
-   
+
   let logger;
   if(noLogFile_cli) {
     logger = {

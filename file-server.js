@@ -366,6 +366,8 @@ class Serve {
     const { req, res, state } = ctx;
     const url = state.uriObject;
 
+    ctx.assert(["GET", "HEAD"].includes(req.method), 405, `Unexpected Method ${req.method}`);
+
     const isDownload = url.searchParams.get("d") || url.searchParams.get("download");
     const filepath = this.routeThrough(
       state.pathname,
