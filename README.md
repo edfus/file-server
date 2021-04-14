@@ -57,6 +57,7 @@ Available command-line options:
 - `--password [passwd]`: The optional password for encrypting and decrypting config file. Password set by the authorization prompt takes priority over this.
 - `--no-prompt`: Skip the prompts, use possible or default settings.
 - `--no-validate`: Do not check validity of pathnames.
+- `--no-log-files`: Do not dump access/error/critical logs to fs.
 - `--no-fallback`: Exits immediately when any misconfiguration is found.
 - `<folder_name>`: The first unpaired, non-option command line argument will be treated as the `<folder_name>`, if exists. Specifying `<folder_name>` will skip the prompts, serve what you want directly using possible or default settings.
 
