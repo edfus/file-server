@@ -264,3 +264,5 @@ Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is app
 App#callback trust `proxy set headers` by default (e.g. X-Forwarded-Host, X-Forwarded-For)
 
 HTTP/2 is not supported.
+
+console.error will be bound to App's intance if no error listener has been attached before invoking App#callback and a warning will be shown. This is the intended behavior inherited from [koa](https://github.com/koajs/koa/blob/eb51cf5fb35b39592a050b25fd261a574f547cfa/lib/application.js#L146).
