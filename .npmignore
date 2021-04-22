@@ -2,4 +2,5 @@ img/*
 *.cache
 *.log
 package-lock.json
-bin/dev/cipher-test.js
+bin/dev/cipher-test.mjs
+build/build.mjs

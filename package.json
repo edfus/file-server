@@ -1,6 +1,6 @@
 {
   "name": "@edfus/file-server",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A LAN server with auth, upload and multithreaded download",
   "bin": {
     "serve": "./bin/cmd.mjs"
@@ -35,7 +35,9 @@
   "author": "edfus",
   "license": "ISC",
   "dependencies": {
-    "prompts": "^2.4.0",
+    "prompts": "^2.4.0"
+  },
+  "devDependencies": {
     "update-file-content": "^1.8.4"
   }
 }
