@@ -2,19 +2,29 @@
   "name": "@edfus/file-server",
   "version": "1.2.2",
   "description": "A LAN server with auth, upload and multithreaded download",
-  "type": "module",
-  "types": "file-server.d.ts",
-  "main": "file-server.js",
-  "module": "file-server.js",
   "bin": {
-    "serve": "./bin/cmd.js"
+    "serve": "./bin/cmd.mjs"
+  },
+  "main": "build/file-server.js",
+  "module": "file-server.mjs",
+  "types": "file-server.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "require": "./build/file-server.js",
+        "import": "./file-server.mjs"
+      },
+      "default": "./file-server.mjs"
+    },
+    "./build/": "./build/"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/edfus/file-server.git"
   },
   "scripts": {
-    "serve": "node ./bin/cmd.js"
+    "serve": "node ./bin/cmd.mjs",
+    "build": "node build/build.mjs"
   },
   "keywords": [
     "http-server",
@@ -24,6 +34,7 @@
   "author": "edfus",
   "license": "ISC",
   "dependencies": {
-    "prompts": "^2.4.0"
+    "prompts": "^2.4.0",
+    "update-file-content": "^1.8.4"
   }
 }

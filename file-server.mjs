@@ -4,8 +4,8 @@ import { pipeline } from "stream";
 import EventEmitter from "events";
 import { createServer } from "http";
 
-import mime from "./env/mime.js";
-import pathMap from "./env/path-map.js";
+import mime from "./env/mime.mjs";
+import pathMap from "./env/path-map.mjs";
 
 class App extends EventEmitter {
   middlewares = [];

@@ -6,8 +6,8 @@ import { createServer as http_server } from "http";
 import { createServer as net_server } from "net";
 import { basename, dirname, normalize, join } from "path";
 
-import { App, Serve } from "../file-server.js";
-import { JSONCache, Log, questions, local, __dirname, removableValidations } from "./helpers.js";
+import { App, Serve } from "../file-server.mjs";
+import { JSONCache, Log, questions, local, __dirname, removableValidations } from "./helpers.mjs";
 
 import prompts from "prompts";
 const { prompt } = prompts;

@@ -259,7 +259,7 @@ Serve#pathnameRouter is where you can customize routing logic. By default, follo
 
 [./lib/stream-saver](https://github.com/edfus/file-server/tree/master/lib/stream-saver) is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
 
-Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for `$indexHTML`. Delete lines in `Serve#fileResHeadersRouter.CSP` in `./bin/cmd.js` if needed.
+Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for `$indexHTML`. Delete lines in `Serve#fileResHeadersRouter.CSP` in `./bin/cmd.mjs` if needed.
 
 App#callback trust `proxy set headers` by default (e.g. X-Forwarded-Host, X-Forwarded-For)
 
