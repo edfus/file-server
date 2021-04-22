@@ -226,6 +226,8 @@ const argvs = process.argv.slice(2);
     );
   }
 
+  requirements.location = requirements.location || ".";
+
   const services = new Serve();
 
   const possibleIndexFiles = ["index.html"];

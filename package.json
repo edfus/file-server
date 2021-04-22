@@ -24,7 +24,8 @@
   },
   "scripts": {
     "serve": "node ./bin/cmd.mjs",
-    "build": "node build/build.mjs"
+    "build": "node build/build.mjs",
+    "prepare": "npm run build"
   },
   "keywords": [
     "http-server",
