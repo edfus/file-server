@@ -25,7 +25,8 @@
   "scripts": {
     "serve": "node ./bin/cmd.mjs",
     "build": "node build/build.mjs",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "test": "wtfnode ./bin/cmd.mjs"
   },
   "keywords": [
     "http-server",
@@ -38,6 +39,6 @@
     "prompts": "^2.4.0"
   },
   "devDependencies": {
-    "update-file-content": "^1.8.4"
+    "stream-editor": "^1.9.0"
   }
 }
