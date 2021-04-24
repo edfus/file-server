@@ -1,11 +1,9 @@
-# File-server
+# File-Server
 
 [![npm](https://img.shields.io/npm/v/@edfus/file-server?logo=npm)](https://www.npmjs.com/package/@edfus/file-server)
 [![install size](https://packagephobia.com/badge?p=@edfus/file-server)](https://packagephobia.com/result?p=@edfus/file-server)
 [![dependencies Status](https://status.david-dm.org/gh/edfus/file-server.svg)](https://david-dm.org/edfus/file-server)
 
-
-A LAN server with auth, upload and multithreaded download
 
 <img src="https://raw.github.com/edfus/file-server/master/img/terminal.gif">
 
