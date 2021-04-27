@@ -1,6 +1,6 @@
 {
   "name": "@edfus/file-server",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "A LAN server with auth, upload and multithreaded download",
   "bin": {
     "serve": "./bin/cmd.mjs"
@@ -26,7 +26,7 @@
     "serve": "node ./bin/cmd.mjs",
     "build": "node build/build.mjs",
     "prepare": "npm run build",
-    "test": "wtfnode ./bin/cmd.mjs"
+    "test": "why-is-node-running ./bin/cmd.mjs"
   },
   "keywords": [
     "http-server",

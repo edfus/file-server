@@ -59,7 +59,7 @@ class JSONCache {
       const encrypted = rawData.slice(offset);
 
       const password = await passwordCallback();
-      if(!password?.length) 
+      if(!password || !password.length) 
         return false;
 
       const key = createHash("sha1").update(password).digest().slice(0, 16);
@@ -150,7 +150,15 @@ export const questions = [
     message: "Enter the port to be listened"
   },
   {
-    type: "text",
+    type: "toggle",
+    name: "disableFileLog",
+    initial: false,
+    active: "No",
+    inactive: "Yes",
+    message: "Enable file-logging?"
+  },
+  {
+    type: disableFileLog => !disableFileLog && "text",
     name: "logPath",
     initial: "./",
     message: "Enter the output folder of logs"

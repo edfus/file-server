@@ -32,7 +32,6 @@ const argvs = process.argv.slice(2);
   const password_cli = extractArg(/^--?p(assw(or)?d)?$/, 1);
 
   const noPrompt_cli = extractArg(/^--?n(o[-_]prompt)?$/) !== false;
-  const noLogFile_cli = extractArg(/^--?no[-_]logs?([-_]files?)?$/) !== false;
   const noValidate_cli = extractArg(/^--?(no[-_]validat(e|ion)|l(oose)?)$/) !== false;
 
   const isHelp = extractArg(/^--?h(elp)?$/) !== false;
@@ -56,7 +55,6 @@ const argvs = process.argv.slice(2);
       "--no-prompt     Skip the prompts, use possible or default settings.",
       "--no-validate   Do not check validity of pathnames.",
       "--no-fallback   Exits immediately when any misconfiguration is found.",
-      "--no-log-files  Do not dump access/error/critical logs to fs.",
       "Shortcuts:",
       "<folder_name>   Folder to be served.",
       "Alias:",
@@ -190,7 +188,7 @@ const argvs = process.argv.slice(2);
   /**
    * add middlewares
    */
-  if (requirements.auth?.length) {
+  if (requirements.auth && requirements.auth.length) {
     const authRules = requirements.auth.map(
       ruleStr => new RegExp(ruleStr, "i")
     );
@@ -346,7 +344,7 @@ const argvs = process.argv.slice(2);
    */
 
   let logger;
-  if(noLogFile_cli) {
+  if(requirements.disableFileLog) {
     logger = {
       critical() {
         console.error.apply(this, arguments);
