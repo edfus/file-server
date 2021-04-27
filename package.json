@@ -1,6 +1,6 @@
 {
   "name": "@edfus/file-server",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "A LAN server with auth, upload and multithreaded download",
   "bin": {
     "serve": "./bin/cmd.mjs"

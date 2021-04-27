@@ -5,3 +5,4 @@ package-lock.json
 bin/dev/cipher-test.mjs
 build/build.mjs
 .github
+tmp
