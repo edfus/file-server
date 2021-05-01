@@ -382,7 +382,7 @@ const argvs = process.argv.slice(2);
 
   servers.main.on("connection", socket => {
     sockets.add(socket);
-    socket.on("close", () => sockets.delete(socket));
+    socket.once("close", () => sockets.delete(socket));
   });
 
   const shutdown = async () => {
@@ -405,8 +405,8 @@ const argvs = process.argv.slice(2);
     console.info("Have a nice day.");
   };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGQUIT", shutdown);
+  process.once("SIGINT", shutdown);
+  process.once("SIGQUIT", shutdown);
 
   process.on('uncaughtExceptionMonitor', err => {
     logger.critical("There was an uncaught error\n".concat(err.stack, true));
