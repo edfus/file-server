@@ -344,7 +344,7 @@ const argvs = process.argv.slice(2);
    */
 
   let logger;
-  if(requirements.disableFileLog) {
+  if(requirements.disableFileLog || !("disableFileLog" in requirements)) {
     logger = {
       critical() {
         console.error.apply(this, arguments);
