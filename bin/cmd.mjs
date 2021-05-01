@@ -385,13 +385,24 @@ const argvs = process.argv.slice(2);
     socket.on("close", () => sockets.delete(socket));
   });
 
-  const shutdown = () => {
-    console.info("Shutting down...");
-    Object.values(servers).forEach(server => server.close());
+  const shutdown = async () => {
+    process.exitCode = 0;
+    if(sockets.size) {
+      console.info(`Destroying ${sockets.size} existing connections...`);
+    }
     for (const socket of sockets.values()) {
       socket.destroy();
     }
-    process.exitCode = 0;
+    console.info("Closing servers...");
+    await Promise.all(
+      Object.values(servers).map(
+        server => new Promise(resolve => 
+          server.unref().close(resolve)
+          // will be called with an Error if the server was not open.
+        )
+      )
+    );
+    console.info("Have a nice day.");
   };
 
   process.on("SIGINT", shutdown);
