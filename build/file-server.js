@@ -82,20 +82,25 @@ class App extends EventEmitter {
         await next();
       } catch (err) {
         const status = Number(err.status || 500);
-        if(err.expose !== false && err.status < 500) {
+        if(err.expose) {
           res.writeHead(status, err.message).end(err.message);
         } else {
           res.writeHead(status);
         }
         this.emit("error", err);
       } finally {
-        if(!res.headersSent)
-          res.writeHead(204, {
-            "Cache-Control": "no-cache",
-            "Connection": "close"
-          });
-        if(!res.writableEnded)
-          res.end();
+        if(!res.destroyed) {
+          if(!res.headersSent) {
+            res.writeHead(204, {
+              "Cache-Control": "no-cache",
+              "Connection": "close"
+            });
+          }
+          if(!res.writableEnded) {
+            res.end();
+          }
+        }
+
         req.resume();
       }
     }
