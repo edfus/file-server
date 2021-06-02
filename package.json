@@ -31,7 +31,8 @@
   "keywords": [
     "http-server",
     "static",
-    "local"
+    "local",
+    "koa"
   ],
   "author": "edfus",
   "license": "ISC",

@@ -54,10 +54,10 @@ A default HTML main page will be used unless file `index.html` exists in the fol
 Available command-line options:
 
 - `--config [config_path]`: The path to your preferred config location for retriving/creating/updating settings.
-- `--password [passwd]`: The optional password for encrypting and decrypting config file. Password set by the authorization prompt takes priority over this.
+- `--password [passwd]`: The optional password for encrypting and decrypting config file. Passwords set by the authorization prompt take priority over this.
 - `--no-prompt`: Skip the prompts, use possible or default settings.
-- `--no-validate`: Do not check validity of pathnames.
-- `--no-fallback`: Exits immediately when any misconfiguration is found.
+- `--no-validate`: Do not check whether a path is valid.
+- `--no-fallback`: Exits immediately when any misconfiguration has been found.
 - `<folder_name>`: The first unpaired, non-option command line argument will be treated as the `<folder_name>`, if exists. Specifying `<folder_name>` will skip the prompts, serve what you want directly using possible or default settings.
 
 When a encrypted config is encountered, a `To recall your previous configuration, enter the password` prompt will always jump out regardless of the `"will-skip-prompts"` options being set or not. Specify `--password passwd` explicitly in this case.
@@ -168,7 +168,7 @@ See <https://github.com/edfus/file-server/blob/master/file-server.d.ts> for more
 
 ### `Serve`
 
-Class `Serve` is the core of this package, highly decoupled.
+Class `Serve` is the core of this package, loosely coupled.
 
 ```ts
 class Serve {
@@ -229,7 +229,7 @@ class Serve {
 }
 ```
 
-Serve#pathnameRouter is where you can customize routing logic. By default, following actions are used.
+Serve#pathnameRouter is where you can customize the routing logic. By default, following actions are used.
 
 ```js
   pathnameRouter = {
@@ -254,12 +254,12 @@ Serve#pathnameRouter is where you can customize routing logic. By default, follo
 
 ## Notes
 
-[./lib/stream-saver](https://github.com/edfus/file-server/tree/master/lib/stream-saver) is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though)
+[./lib/stream-saver](https://github.com/edfus/file-server/tree/master/lib/stream-saver) is a modified version of [StreamSaver.js](https://github.com/jimmywarting/StreamSaver.js), only browsers compatible with [Transferable Streams](https://github.com/whatwg/streams/blob/main/transferable-streams-explainer.md) are supported and a valid SSL certificate is required for service worker registration when serving via https (http is ok, though).
 
-Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules is applied for `$indexHTML`. Delete lines in `Serve#fileResHeadersRouter.CSP` in `./bin/cmd.mjs` if needed.
+Strict [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) rules are applied for `$indexHTML`. Delete lines in `Serve#fileResHeadersRouter.CSP` in `./bin/cmd.mjs` if needed.
 
-App#callback trust `proxy set headers` by default (e.g. X-Forwarded-Host, X-Forwarded-For)
+`App#callback` trust `proxy set headers` by default (e.g. X-Forwarded-Host, X-Forwarded-For)
 
 HTTP/2 is not supported.
 
-console.error will be bound to App's intance if no error listener has been attached before invoking App#callback and a warning will be shown. This is the intended behavior inherited from [koa](https://github.com/koajs/koa/blob/eb51cf5fb35b39592a050b25fd261a574f547cfa/lib/application.js#L146).
+`console.error` will be bound to App's intance if no error listener has been attached before invoking `App#callback` and a warning message will be displayed. This is the intended behavior inherited from [Koa](https://github.com/koajs/koa/blob/eb51cf5fb35b39592a050b25fd261a574f547cfa/lib/application.js#L146).
