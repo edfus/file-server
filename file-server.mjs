@@ -44,7 +44,7 @@ class App extends EventEmitter {
     }
 
     return async (req, res) => {
-      const proto = req.socket.encrypted ? "https:" : proxyHeader(req, "X-Forwarded-Host") || "http:";
+      const proto = req.socket.encrypted ? "https:" : proxyHeader(req, "X-Forwarded-Proto") || "http:";
       const protocol = proto.replace(/([^:]$)/, "$1:");
 
       let uriObject;
