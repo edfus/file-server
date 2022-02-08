@@ -11,7 +11,8 @@ img
 lib
 eof
 
-node -e 'const p = require("./package.json"); delete p.bin; fs.writeFileSync("package.json", JSON.stringify(p, null, 2), "utf-8")'
+node -e 'const p = require("./package.json"); delete p.bin; delete p.dependencies.prompts; fs.writeFileSync("package.json", JSON.stringify(p, null, 2), "utf-8")'
+
 npm publish --tag interface
 
 mv "$intermediateignore" .npmignore
