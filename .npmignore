@@ -6,3 +6,5 @@ bin/dev/cipher-test.mjs
 build/build.mjs
 .github
 tmp
+interface.sh
+.ignored-*
